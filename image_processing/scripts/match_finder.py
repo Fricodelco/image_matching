@@ -10,7 +10,7 @@ import gdal
 from dataclasses import dataclass
 from geodetic_conv import GeodeticConvert
 from decimal import Decimal
-
+import matplotlib.pyplot as plt
 @dataclass
 class roi:
     img: np.ndarray
@@ -30,6 +30,7 @@ class match_finder():
         self.search_scale = 2
         self.aproximate_angle = aproximate_angle
         self.roi_img = None
+        self.percent_of_good_value = 3.5
 
     def find_map_roi_by_coordinates(self):
         #find the center of cadr coordinates at map
@@ -39,8 +40,8 @@ class match_finder():
             print("no match")
             return 0
         #find the center pixel
-        pixel_x = int(Decimal(x) / self.map.pixel_size) 
-        pixel_y = int(Decimal(y) / self.map.pixel_size) 
+        pixel_x = int(Decimal(x) / self.map.pixel_size)
+        pixel_y = int(Decimal(y) / self.map.pixel_size)
         #find the corners
         width = self.cadr.rasterArray.shape[1]*self.search_scale
         height = self.cadr.rasterArray.shape[0]* self.search_scale
@@ -71,8 +72,9 @@ class match_finder():
         # print(self.roi_img.img.shape, optimal_scale_for_cadr)
         
     def find_matches(self):
-        img1 = self.roi_img.img
-        img2 = self.cadr.rasterArray
+        img2 = self.roi_img.img # trainImage
+        img1 = self.cadr.rasterArray # queryImage
+        # img1 = self.rotate_image(img1, self.aproximate_angle)
         sift = cv2.xfeatures2d.SIFT_create(nfeatures = 0,
             nOctaveLayers = 4,
             contrastThreshold = 0.04,
@@ -82,26 +84,77 @@ class match_finder():
         
         keypoints_2, descriptors_2 = sift.detectAndCompute(img2,None)
 
-        # print(len(keypoints_1), len(keypoints_2))
-        # bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=True)
-
-        # matches = bf.match(descriptors_1,descriptors_2)
-        # matches = sorted(matches, key = lambda x:x.distance)
-        # print(len(matches), matches[0])
-        # img3 = cv2.drawMatches(img1, keypoints_1, img2, keypoints_2, good[:50], img2, flags=2)
         bf = cv2.BFMatcher()
         matches = bf.knnMatch(descriptors_1,descriptors_2,k=2)
         # Apply ratio test
         good = []
         for m,n in matches:
-            if m.distance < 0.45*n.distance:
+            if m.distance < 0.5*n.distance:
                 good.append([m])
-        print(len(good))
-        img3 = cv2.drawMatchesKnn(img1,keypoints_1,img2,keypoints_2,good,None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-        cv2.imshow('img', img3)
+        percent_of_good = (len(good)/len(keypoints_1))*100
+        print(percent_of_good)
+        if percent_of_good > self.percent_of_good_value:
+            self.find_keypoints_transform(keypoints_1, keypoints_2, good, img1, img2)
+        # img3 = cv2.drawMatchesKnn(img1,keypoints_1,img2,keypoints_2,good,None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+        # img3 = cv2.drawKeypoints(img2, keypoints_2, img2, color = (255, 20, 147))
+        # cv2.imshow('img', img3)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()        
+    
+    def find_keypoints_transform(self, kp1, kp2, matches, img1, img2):
+        src_pts = np.float32([ kp1[m[0].queryIdx].pt for m in matches]).reshape(-1,1,2)
+        dst_pts = np.float32([ kp2[m[0].trainIdx].pt for m in matches]).reshape(-1,1,2)
+        M, mask = cv2.findHomography(src_pts, dst_pts, cv2.USAC_MAGSAC,5.0)
+        matchesMask = [[0,0] for i in range(len(matches))]
+        h,w = img1.shape
+        pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
+        pts_vis = [[0,0],[0,h-1],[w-1,h-1],[w-1,0]]
+        dst = cv2.perspectiveTransform(pts,M)
+        roll, picth, yaw = self.get_angles_from_homography(M)
+        print(roll, picth, yaw)
+        img = cv2.warpPerspective(img1, M, (img1.shape[0], img1.shape[1]), cv2.INTER_LINEAR, cv2.BORDER_CONSTANT)
+        
+        # print(np.linalg.inv(M))
+        img2 = cv2.polylines(img2,[np.int32(dst)],True,255,3, cv2.LINE_AA)
+        draw_params = dict(matchColor = (0,255,0), # draw matches in green color
+                   singlePointColor = None,
+                   matchesMask = matchesMask, # draw only inliers
+                   flags = 2)
+        img3 = cv2.drawMatchesKnn(img1,kp1,img2,kp2,matches,None, **draw_params)
+        img = self.rotate_image(img1, yaw)
+        cv2.imshow('img2', img3)
+        cv2.imshow('img1', img)
+        # cv2.imshow('dst', warp_dst)
         cv2.waitKey(0)
         cv2.destroyAllWindows()        
-        
+       
+    def get_angles_from_homography(self, H):
+        #eject the yaw transform
+        #[c -s 0 0]
+        #[s c  0 0]
+        #[0 0  1 0]
+        #[0 0  0 1]
+        u, _, vh = np.linalg.svd(H[0:2, 0:2])
+        R = u @ vh
+        yaw = np.arctan2(R[1,0], R[0,0])
+        #roll
+        #[1 0 0  0]
+        #[0 c -s 0]
+        #[0 s c  0]
+        #[0 0 0  1]
+        u, _, vh = np.linalg.svd(H[1:3, 1:3])
+        R = u @ vh
+        roll = np.arctan2(R[1,1], R[0,1])
+        #pitch
+        #[c  0 s 0]
+        #[0  1 0 0]
+        #[-s 0 c 0]
+        #[0  0 0 1]
+        u, _, vh = np.linalg.svd(H[0:3, 0:3])
+        R = u @ vh
+        picth = np.arctan2(R[2,2], R[0,2])
+        return roll, picth, yaw
+
     def show_cadr_on_map(self):
         g_c = GeodeticConvert()
         g_c.initialiseReference(self.map.main_points[0].lat, self.map.main_points[0].lon, 0)
@@ -147,3 +200,26 @@ class match_finder():
         dim = (width, height)  
         resized = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
         return resized
+    
+
+    def rotate_image(self, mat, angle):
+        height, width = mat.shape[:2] # image shape has 3 dimensions
+        image_center = (width/2, height/2) # getRotationMatrix2D needs coordinates in reverse order (width, height) compared to shape
+
+        rotation_mat = cv2.getRotationMatrix2D(image_center, angle, 1.)
+
+        # rotation calculates the cos and sin, taking absolutes of those.
+        abs_cos = abs(rotation_mat[0,0]) 
+        abs_sin = abs(rotation_mat[0,1])
+
+        # find the new width and height bounds
+        bound_w = int(height * abs_sin + width * abs_cos)
+        bound_h = int(height * abs_cos + width * abs_sin)
+
+        # subtract old image center (bringing image back to origo) and adding the new image center coordinates
+        rotation_mat[0, 2] += bound_w/2 - image_center[0]
+        rotation_mat[1, 2] += bound_h/2 - image_center[1]
+
+        # rotate image with the new bounds and translated rotation matrix
+        rotated_mat = cv2.warpAffine(mat, rotation_mat, (bound_w, bound_h))
+        return rotated_mat

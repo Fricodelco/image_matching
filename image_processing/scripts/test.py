@@ -9,6 +9,7 @@ import gdal
 from image_processing import image_processing
 from decimal import Decimal
 from match_finder import match_finder
+from time import time
 
 def main():
     main_map = image_processing('/fon/26_12_2021_nn.TIF', 0)
@@ -16,11 +17,11 @@ def main():
     print(map_pixel_size)
     cadr = image_processing('/foto/13_12_54_15.jpg', 0)
     cadr_pixel_size = cadr.find_pixel_size()
-    print(cadr_pixel_size)
-    matcher = match_finder(main_map, cadr, 90)
+    matcher = match_finder(main_map, cadr, 270)
     matcher.resize_cadr_by_scale()
     matcher.find_map_roi_by_coordinates()
     matcher.rescale_for_optimal_sift()
+    t1 = time()
     matcher.find_matches()
     # matcher.show_cadr_on_map()
     # sift = cv2.xfeatures2d.SIFT_create()
