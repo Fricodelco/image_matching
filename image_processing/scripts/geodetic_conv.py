@@ -42,7 +42,6 @@ class GeodeticConvert:
         x = (self.kSemimajorAxis / xi + altitude) * cos(lat_rad) * cos(lon_rad)
         y = (self.kSemimajorAxis / xi + altitude) * cos(lat_rad) * sin(lon_rad)
         z = (self.kSemimajorAxis / xi * (1 - self.kFirstEccentricitySquared) + altitude) * sin(lat_rad)
-
         return [x,y,z]
 
     def geodetic2Ned(self, latitude, longitude, altitude) -> list:

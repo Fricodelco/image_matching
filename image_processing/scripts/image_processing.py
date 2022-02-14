@@ -31,7 +31,8 @@ class image_processing():
             raster = gdal.Open(data_path+'/'+filename)
             self.rasterArray = raster.ReadAsArray()
             self.rasterArray = np.dstack((self.rasterArray[0],self.rasterArray[1],self.rasterArray[2]))
-            self.rasterArray = cv2.cvtColor(self.rasterArray, cv2.COLOR_RGB2GRAY)
+            # self.rasterArray = cv2.cvtColor(self.rasterArray, cv2.COLOR_RGB2GRAY)
+            self.rasterArray = self.rasterArray[:,:,0]
             # print(self.rasterArray.shape)
             with open(data_path+'/'+filename[:-4]+'.@@@') as f:
                 lines = f.readlines()

@@ -10,19 +10,40 @@ from image_processing import image_processing
 from decimal import Decimal
 from match_finder import match_finder
 from time import time
+import copy
 
 def main():
-    main_map = image_processing('/fon/26_12_2021_nn.TIF', 0)
+    # main_map = image_processing('UD_data/fon/Kar_19_03k.TIF', 0)
+    main_map = image_processing('UD_data/known/fon/07_03.TIF', 0)
+    # main_map = image_processing('fon/26_12_2021_nn.TIF', 0)
     map_pixel_size = main_map.find_pixel_size()
-    print(map_pixel_size)
-    cadr = image_processing('/foto/13_12_54_15.jpg', 0)
+    cadr = image_processing('UD_data/foto/17_35_10_6.jpg', 0)
+    # cadr = image_processing('UD_data/known/foto/17_39_42_4.jpg', 0)
+    # cadr = image_processing('foto/13_12_54_15.jpg', 0)
     cadr_pixel_size = cadr.find_pixel_size()
-    matcher = match_finder(main_map, cadr, 270)
-    matcher.resize_cadr_by_scale()
-    matcher.find_map_roi_by_coordinates()
-    matcher.rescale_for_optimal_sift()
-    t1 = time()
-    matcher.find_matches()
+    matcher = match_finder()
+    scale, map_pixel_bigger = matcher.find_scale(map_pixel_size, cadr_pixel_size)
+    if map_pixel_bigger is True:
+        cadr.rasterArray, cadr.pixel_size = matcher.resize_by_scale(
+                                cadr.rasterArray, cadr.pixel_size, scale)
+    else:
+        #need copy of full size map for future
+        main_map.rasterArray, main_map.pixel_size = matcher.resize_by_scale(
+                            main_map.rasterArray, main_map.pixel_size, scale)
+
+    roi = matcher.find_map_roi_by_coordinates(main_map, cadr)
+    # print(roi)
+    cadr_rescaled = copy.copy(cadr)
+    roi, cadr_rescaled = matcher.rescale_for_optimal_sift(roi, cadr_rescaled)
+    kp_1, kp_2, good = matcher.find_matches(roi.img, cadr_rescaled.rasterArray)
+    percent_of_good = (len(good)/len(kp_1))*100
+    print(percent_of_good)
+    if percent_of_good > matcher.percent_of_good_value:
+        x_center, y_center, roll, pitch, yaw, M = matcher.find_keypoints_transform(kp_1, kp_2, good, roi.img, cadr_rescaled.rasterArray)
+        height = 2000
+        matcher.solve_IK(x_center, y_center, roll, pitch, yaw, height, roi)
+    # t1 = time()
+    # matcher.find_matches()
     # matcher.show_cadr_on_map()
     # sift = cv2.xfeatures2d.SIFT_create()
 
