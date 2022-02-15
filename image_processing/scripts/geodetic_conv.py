@@ -44,6 +44,43 @@ class GeodeticConvert:
         z = (self.kSemimajorAxis / xi * (1 - self.kFirstEccentricitySquared) + altitude) * sin(lat_rad)
         return [x,y,z]
 
+    def ecef2Geodetic(self, x,  y, z): 
+        r = sqrt(x * x + y * y)
+        Esq = self.kSemimajorAxis * self.kSemimajorAxis - self.kSemiminorAxis * self.kSemiminorAxis
+        F = 54 * self.kSemiminorAxis * self.kSemiminorAxis * z * z
+        G = r * r + (1 - self.kFirstEccentricitySquared) * z * z - self.kFirstEccentricitySquared * Esq
+        C = (self.kFirstEccentricitySquared * self.kFirstEccentricitySquared * F * r * r) /(G**3)
+        S = (1 + C + sqrt(C * C + 2 * C))**(1./3.)
+        P = F / (3 * ((S + 1 / S + 1)**2) * G * G)
+        Q = sqrt(1 + 2 * self.kFirstEccentricitySquared * self.kFirstEccentricitySquared * P)
+        r_0 = -(P * self.kFirstEccentricitySquared * r) / (1 + Q) + sqrt(
+                                                                          0.5 * self.kSemimajorAxis * self.kSemimajorAxis * (1 + 1.0 / Q) - P * (1 - self.kFirstEccentricitySquared) * z * z / (Q * (1 + Q)) - 0.5 * P * r * r)
+        U = sqrt(((r - self.kFirstEccentricitySquared * r_0)**2) + z * z)
+        V = sqrt(
+            ((r - self.kFirstEccentricitySquared * r_0)**2) + (1 - self.kFirstEccentricitySquared) * z * z)
+        Z_0 = self.kSemiminorAxis * self.kSemiminorAxis * z / (self.kSemimajorAxis * V)
+        altitude = U * (1 - self.kSemiminorAxis * self.kSemiminorAxis / (self.kSemimajorAxis * V))
+        latitude = self.rad2Deg(atan((z + self.kSecondEccentricitySquared * Z_0) / r))
+        longitude = self.rad2Deg(atan2(y, x))
+        return latitude, longitude, altitude
+
+    def ned2Ecef(self, north, east, down):
+        ned = np.ones(3)
+        ret = np.ones(3)
+        ned[0] = north
+        ned[1] = east
+        ned[2] = -down
+        ret = self.ned_to_ecef_matrix_.dot(ned)
+        x = ret[0] + self.initial_ecef_x_
+        y = ret[1] + self.initial_ecef_y_
+        z = ret[2] + self.initial_ecef_z_
+        return x, y, z
+
+    def ned2Geodetic(self, north, east, down):
+        x,y,z = self.ned2Ecef(north, east, down)
+        latitude, longitude, altitude = self.ecef2Geodetic(x, y, z)
+        return latitude, longitude, altitude
+
     def geodetic2Ned(self, latitude, longitude, altitude) -> list:
         x, y, z = self.geodetic2Ecef(latitude, longitude, altitude)
         north, east, down = self.ecef2Ned(x, y, z)
@@ -65,6 +102,9 @@ class GeodeticConvert:
 
     def deg2Rad(self, degrees) -> float:
         return degrees/180.0*pi
+
+    def rad2Deg(self, radians) -> float:
+        return (radians/pi)*180
 
     def nRe(self, lat_radians, lon_radians):
         sLat = sin(lat_radians)

@@ -12,14 +12,14 @@ from match_finder import match_finder
 from time import time
 import copy
 
-def main():
+def match_from_image():
     # main_map = image_processing('UD_data/fon/Kar_19_03k.TIF', 0)
-    main_map = image_processing('UD_data/known/fon/07_03.TIF', 0)
-    # main_map = image_processing('fon/26_12_2021_nn.TIF', 0)
+    # main_map = image_processing('UD_data/known/map/poligon_24_09.jpg', 0)
+    main_map = image_processing('fon/26_12_2021_nn.TIF', 0)
     map_pixel_size = main_map.find_pixel_size()
-    cadr = image_processing('UD_data/foto/17_35_10_6.jpg', 0)
+    # cadr = image_processing('UD_data/known/photo/C0002_023_0000037158.jpg', 0)
     # cadr = image_processing('UD_data/known/foto/17_39_42_4.jpg', 0)
-    # cadr = image_processing('foto/13_12_54_15.jpg', 0)
+    cadr = image_processing('foto/13_12_54_15.jpg', 0)
     cadr_pixel_size = cadr.find_pixel_size()
     matcher = match_finder()
     scale, map_pixel_bigger = matcher.find_scale(map_pixel_size, cadr_pixel_size)
@@ -41,11 +41,19 @@ def main():
     if percent_of_good > matcher.percent_of_good_value:
         x_center, y_center, roll, pitch, yaw, M = matcher.find_keypoints_transform(kp_1, kp_2, good, roi.img, cadr_rescaled.rasterArray)
         height = 2000
-        matcher.solve_IK(x_center, y_center, roll, pitch, yaw, height, roi)
-    # t1 = time()
-    # matcher.find_matches()
-    # matcher.show_cadr_on_map()
-    # sift = cv2.xfeatures2d.SIFT_create()
+        lat, lon = matcher.solve_IK(x_center, y_center, roll, pitch, yaw, height, roi, main_map)
+        img = matcher.resize_img(main_map.rasterArray, 0.2)
+        pixel_size = main_map.pixel_size/Decimal(0.2)
+        img = matcher.draw_circle_on_map_by_coord(img,
+                                    (main_map.main_points[0].lat, main_map.main_points[0].lon),
+                                    (lat, lon), pixel_size)
+        cv2.imshow('img', img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+
+def main():
+    match_from_image()
 
 
 if __name__ == '__main__':

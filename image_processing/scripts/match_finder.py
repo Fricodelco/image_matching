@@ -26,7 +26,7 @@ class match_finder():
         self.optimal_size_x = 400
         self.search_scale = 2
         self.roi_img = None
-        self.percent_of_good_value = 2.5
+        self.percent_of_good_value = 0.0
 
     def find_scale(self, pixel_size_map, pixel_size_cadr):
         if pixel_size_map > pixel_size_cadr:
@@ -89,9 +89,9 @@ class match_finder():
                 good.append([m])
         img3 = cv2.drawMatchesKnn(img1,keypoints_1,img2,keypoints_2,good,None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
         # img3 = cv2.drawKeypoints(img1, keypoints_2, img2, color = (255, 20, 147))
-        cv2.imshow('img', img3)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()        
+        # cv2.imshow('img', img3)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()        
         return keypoints_1, keypoints_2, good
         
 
@@ -117,12 +117,32 @@ class match_finder():
         img = self.rotate_image(img1, (yaw/np.pi)*180)
         cv2.imshow('img2', img3)
         cv2.imshow('img1', img)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()        
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()        
         return x_center, y_center, roll, pitch, yaw, M
     
-    def solve_IK(self, x_center, y_center, roll, pitch, yaw, height, roi):
-        a = 1
+    def solve_IK(self, x_center, y_center, roll, pitch, yaw, height, roi, map_):
+        g_c = GeodeticConvert()
+        g_c.initialiseReference(roi.lat_center, roi.lon_center, 0)
+        print(x_center, y_center)
+        print(roi.img.shape)
+        delta_x = (x_center - roi.img.shape[1]/2)*float(roi.pixel_size)
+        delta_y = (y_center - roi.img.shape[0]/2)*float(roi.pixel_size)
+        print(delta_x, delta_y)
+        lat, lon, _ = g_c.ned2Geodetic(delta_y, delta_x, 0)
+        print(lat, lon)
+        return lat, lon
+        
+    def draw_circle_on_map_by_coord(self, img, coord, circle_coord, pixel_size):
+        g_c = GeodeticConvert()
+        g_c.initialiseReference(coord[0], coord[1], 0)
+        x, y, z = g_c.geodetic2Ned(circle_coord[0], circle_coord[1], 0)
+        print(x,y)
+        pixel_x = int(-x/float(pixel_size))
+        pixel_y = int(y/float(pixel_size))
+        print(pixel_x, pixel_y)
+        img = cv2.circle(img, (pixel_y, pixel_x), 10, 255, 2)
+        return img
 
     def get_angles_from_homography(self, H):
         #eject the yaw transform
