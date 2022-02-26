@@ -19,7 +19,7 @@ class img_point:
     lon: float = 0.0
 
 class image_processing():
-    def __init__(self, filename = None, height = None):
+    def __init__(self, filename = None, height = None, img = None):
         self.main_points = []
         self.alt = 0
         self.g_c = GeodeticConvert()
@@ -32,7 +32,9 @@ class image_processing():
             self.rasterArray = raster.ReadAsArray()
             self.rasterArray = np.dstack((self.rasterArray[0],self.rasterArray[1],self.rasterArray[2]))
             # self.rasterArray = cv2.cvtColor(self.rasterArray, cv2.COLOR_RGB2GRAY)
-            self.rasterArray = self.rasterArray[:,:,0]
+            self.rasterArray = self.rasterArray[:,:,2]
+            norm_img = np.zeros(self.rasterArray.shape)
+            self.rasterArray = cv2.normalize(self.rasterArray,  norm_img, 0, 255, cv2.NORM_MINMAX)
             # print(self.rasterArray.shape)
             with open(data_path+'/'+filename[:-4]+'.@@@') as f:
                 lines = f.readlines()
@@ -48,7 +50,15 @@ class image_processing():
                                     sub_str[2], sub_str[3])
                     self.main_points.append(point)
         else:
-            print("no file")
+            self.rasterArray = img
+            print(self.rasterArray.shape)
+            # self.rasterArray = np.dstack((self.rasterArray[0],self.rasterArray[1],self.rasterArray[2]))
+            # self.rasterArray = cv2.cvtColor(self.rasterArray, cv2.COLOR_RGB2GRAY)
+            self.rasterArray = self.rasterArray[:,:,2]
+            norm_img = np.zeros(self.rasterArray.shape)
+            self.rasterArray = cv2.normalize(self.rasterArray,  norm_img, 0, 255, cv2.NORM_MINMAX)
+            
+
         if height is not None:
             self.alt = height
         else:
