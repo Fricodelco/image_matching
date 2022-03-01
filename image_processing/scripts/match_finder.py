@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from geodetic_conv import GeodeticConvert
 from decimal import Decimal
 import matplotlib.pyplot as plt
-from utils import resize_img, rotate_image, line_intersection
+from utils import resize_img, rotate_image, line_intersection, isConvex
 import math
 @dataclass
 class roi:
@@ -21,7 +21,7 @@ class roi:
 
 class match_finder():
     def __init__(self):
-        self.optimal_size_x = 500
+        self.optimal_size_x = 350
         self.search_scale = 2
         self.roi_img = None
         self.percent_of_good_value = 1.0
@@ -93,10 +93,28 @@ class match_finder():
         return roi_    
 
     def roi_full_map(self, map_):
+        # shape = map_.rasterArray.shape
+        # img = map_.rasterArray[:int(0.7*shape[0]),:]
         img = map_.rasterArray
         roi_img = roi(img, 0, 0, map_.pixel_size)
         return roi_img
 
+    def roi_from_last_xy(self, map_, pixel_x, pixel_y, cadr, search_scale):
+        #find the corners
+        width = cadr.rasterArray.shape[1]*search_scale
+        height = cadr.rasterArray.shape[0]*search_scale
+        x_min = int(pixel_x - height/2)
+        x_max = int(pixel_x + height/2)
+        y_min = int(pixel_y - width/2)
+        y_max = int(pixel_y + width/2)
+        if x_min < 0: x_min = 0
+        if y_min < 0: y_min = 0
+        if x_max > map_.rasterArray.shape[0]: x_max = map_.rasterArray.shape[0]
+        if y_max > map_.rasterArray.shape[1]: y_max = map_.rasterArray.shape[1]
+        #save to structure
+        img = map_.rasterArray[x_min:x_max, y_min:y_max]
+        roi_img = roi(img, x_min, y_min, map_.pixel_size)
+        return roi_img
 
     def rescale_for_optimal_sift(self, roi, cadr):
         optimal_scale_for_cadr = self.optimal_size_x/cadr.rasterArray.shape[1]
@@ -108,22 +126,26 @@ class match_finder():
         
 
     def find_matches(self, img2, img1):
-        # sift = cv2.xfeatures2d.SIFT_create(nfeatures = 0,
+        # self.img1 = self.clahe(img1)
+        # self.img2 = self.clahe(img2)
+        # surf = cv2.xfeatures2d.SIFT_create(nfeatures = 0,
         #     nOctaveLayers = 4,
         #     contrastThreshold = 0.04,
         #     edgeThreshold = 10,
         #     sigma = 1.6)
-        # # sift = cv2.xfeatures2d.SIFT_create(nfeatures = 0,
-        #     nOctaveLayers = 4,
-        #     contrastThreshold = 0.04,
-        #     edgeThreshold = 30,
-        #     sigma = 1.6)
+        surf = cv2.xfeatures2d.SIFT_create(nfeatures = 0,
+            nOctaveLayers = 5,
+            contrastThreshold = 0.1,
+            edgeThreshold = 40,
+            sigma = 1.6)
         # surf = cv2.xfeatures2d.SURF_create(hessianThreshold = 400,
-        #                             nOctaves = 4,
-        #                             nOctaveLayers = 4,
-        #                             extended = True,
-        #                             upright = True)
-
+        #                             nOctaves = 5,
+        #                             nOctaveLayers = 6,
+        #                             extended = False,
+        #                             upright = False)
+        # surf = cv2.BRISK_create()
+        # surf = cv2.ORB_create(nfeatures=1000, scaleFactor=1.2, nlevels=8, edgeThreshold=31, firstLevel=0, patchSize=31, fastThreshold=20)
+        
         keypoints_1, descriptors_1 = surf.detectAndCompute(img1,None)
         keypoints_2, descriptors_2 = surf.detectAndCompute(img2,None)
 
@@ -132,7 +154,7 @@ class match_finder():
         # Apply ratio test
         good = []
         for m,n in matches:
-            if m.distance < 0.8*n.distance:
+            if m.distance < 0.9*n.distance:
                 good.append([m])
         img3 = cv2.drawMatchesKnn(img1,keypoints_1,img2,keypoints_2,good,None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
         # img3 = cv2.drawKeypoints(img1, keypoints_2, img2, color = (255, 20, 147))
@@ -145,28 +167,31 @@ class match_finder():
     def find_keypoints_transform(self, kp1, kp2, matches, img2, img1):
         src_pts = np.float32([ kp1[m[0].queryIdx].pt for m in matches]).reshape(-1,1,2)
         dst_pts = np.float32([ kp2[m[0].trainIdx].pt for m in matches]).reshape(-1,1,2)
-        M, mask = cv2.findHomography(src_pts, dst_pts, cv2.USAC_MAGSAC,5.0)
+        M, mask = cv2.findHomography(src_pts, dst_pts, cv2.USAC_MAGSAC, 5.0)
         matchesMask = [[0,0] for i in range(len(matches))]
         h,w = img1.shape
         pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
         pts_vis = [[0,0],[0,h-1],[w-1,h-1],[w-1,0]]
         dst = cv2.perspectiveTransform(pts,M)
-        roll, pitch, yaw = self.get_angles_from_homography(M)
-        x_center, y_center = line_intersection((dst[0][0], dst[2][0]), (dst[1][0], dst[3][0]))
-        #draw
-        img2 = cv2.circle(img2, (int(x_center), int(y_center)), 10, 255, 5)
-        img2 = cv2.polylines(img2,[np.int32(dst)],True,255,3, cv2.LINE_AA)
-        draw_params = dict(matchColor = (0,255,0), # draw matches in green color
-                   singlePointColor = None,
-                   matchesMask = matchesMask, # draw only inliers
-                   flags = 2)
-        # img3 = cv2.drawMatchesKnn(img1,kp1,img2,kp2,matches,None, **draw_params)
-        # img = rotate_image(img1, (yaw/np.pi)*180)
-        # cv2.imshow('img2', img2)
-        # cv2.imshow('img1', img)
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()        
-        return x_center, y_center, roll, pitch, yaw, M
+        if isConvex(dst, img1.shape) is True:
+            roll, pitch, yaw = self.get_angles_from_homography(M)
+            x_center, y_center = line_intersection((dst[0][0], dst[2][0]), (dst[1][0], dst[3][0]))
+            #draw
+            img2 = cv2.circle(img2, (int(x_center), int(y_center)), 10, 255, 5)
+            img2 = cv2.polylines(img2,[np.int32(dst)],True,255,3, cv2.LINE_AA)
+            draw_params = dict(matchColor = (0,255,0), # draw matches in green color
+                    singlePointColor = None,
+                    matchesMask = matchesMask, # draw only inliers
+                    flags = 2)
+            # img3 = cv2.drawMatchesKnn(img1,kp1,img2,kp2,matches,None, **draw_params)
+            # img = rotate_image(img1, (yaw/np.pi)*180)
+            # cv2.imshow('img2', img2)
+            # cv2.imshow('img1', img)
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()        
+            return x_center, y_center, roll, pitch, yaw, M, img2
+        else:
+            return None, None, None, None, None, None, None
     
     def solve_IK(self, x_center, y_center, roll, pitch, yaw, roi, map_):
         scale_roi_to_map = roi.pixel_size/map_.pixel_size
@@ -181,9 +206,9 @@ class match_finder():
         g_c = GeodeticConvert()
         g_c.initialiseReference(map_.main_points[0].lat, map_.main_points[0].lon, 0)
         # # print(x_center*float(roi.pixel_size), y_center*float(roi.pixel_size))
-        print(x_meter, y_meter)
-        lat, lon, _ = g_c.ned2Geodetic(float(x_meter), float(y_meter), 0)
-        return lat, lon
+        # print(x_meter, y_meter)
+        lat, lon, _ = g_c.ned2Geodetic(float(-x_meter), float(y_meter), 0)
+        return lat, lon, x, y
         
 
     def get_angles_from_homography(self, H):
@@ -192,26 +217,29 @@ class match_finder():
         #[s c  0 0]
         #[0 0  1 0]
         #[0 0  0 1]
-        u, _, vh = np.linalg.svd(H[0:2, 0:2])
-        R = u @ vh
-        yaw = np.arctan2(-R[1,0], R[0,0])
+        # u, _, vh = np.linalg.svd(H[0:2, 0:2])
+        # R = u @ vh
+        # yaw = np.arctan2(-R[1,0], R[0,0]) + np.pi
+        yaw = np.arctan2(-H[1,0], H[0,0]) + np.pi
         #roll
         #[1 0 0  0]
         #[0 c -s 0]
         #[0 s c  0]
         #[0 0 0  1]
-        u, _, vh = np.linalg.svd(H[1:3, 1:3])
-        R = u @ vh
-        roll = np.arctan2(R[1,1], R[0,1])
+        # u, _, vh = np.linalg.svd(H[1:3, 1:3])
+        # R = u @ vh
+        # roll = np.arctan2(R[1,1], R[0,1])
+        pitch = np.arctan2(-H[2,1], H[1,1])
         #pitch
         #[c  0 s 0]
         #[0  1 0 0]
         #[-s 0 c 0]
         #[0  0 0 1]
-        u, _, vh = np.linalg.svd(H[0:3, 0:3])
-        R = u @ vh
-        picth = np.arctan2(R[2,2], R[0,2])
-        return roll, picth, yaw
+        # u, _, vh = np.linalg.svd(H[0:3, 0:3])
+        # R = u @ vh
+        # picth = np.arctan2(R[2,2], R[0,2])
+        roll = np.arctan2(H[0,2], H[2,2])
+        return roll, pitch, yaw
 
     def show_cadr_on_map(self):
         g_c = GeodeticConvert()
@@ -251,4 +279,13 @@ class match_finder():
         rasterArray = resize_img(rasterArray, scale)
         pixel_size = Decimal(pixel_size) / Decimal(scale)
         return rasterArray, pixel_size
+
+    def clahe(self, img):
+        lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+        l, a, b = cv2.split(lab)
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+        cl = clahe.apply(l)
+        limg = cv2.merge((cl,a,b))
+        final = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
+        return clahe
 

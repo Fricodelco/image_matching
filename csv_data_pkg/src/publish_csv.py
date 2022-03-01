@@ -1,0 +1,62 @@
+#!/usr/bin/env python3 
+import rospy
+import rospkg
+import csv
+import os
+import tf
+from sensor_msgs.msg import Imu, NavSatFix
+
+class CsvRosHendler():
+    def __init__(self, csv_file_path: str) -> None:
+        self.csv_data = []
+        self.csv_file_path = csv_file_path
+        self.imu_publisher = rospy.Publisher('/imu', Imu, queue_size=10)
+        self.gps_publisher = rospy.Publisher('/gps', NavSatFix, queue_size=10)
+        self.__parse_csv_data()
+    
+    def __parse_csv_data(self) -> None:
+        with open(self.csv_file_path, newline='') as csvfile:
+            spamreader = csv.reader(csvfile, delimiter=';', quotechar='|')
+            for i,line in enumerate(spamreader):
+                if i !=0:
+                    time = self.__parse_time_to_sec(line[0])
+                    data = list(map(float ,line[1:]))
+                    self.csv_data.append([time]+data)
+
+    def __parse_time_to_sec(self, date: str) -> float:
+        split_date = list(map(float,date.split(':')))
+        sec = split_date[0]*3600 + split_date[1]*60+split_date[2]
+        return sec
+    
+    def start_publihs_gps_imu(self)->None:
+        for i, data in enumerate(self.csv_data):
+            rospy.sleep(data[0]-self.csv_data[0][0])
+            self.__publish_gps_imu_data(i)
+
+    def __publish_gps_imu_data(self, index: int)->None:
+        imu_msg = Imu()
+        roll, pitch, yaw = self.csv_data[index][4], self.csv_data[index][5], self.csv_data[index][6]
+        quaternion = tf.transformations.quaternion_from_euler(roll,pitch,yaw)
+        imu_msg.orientation.x = quaternion[0]
+        imu_msg.orientation.y = quaternion[1]
+        imu_msg.orientation.z = quaternion[2]
+        imu_msg.orientation.w = quaternion[3]
+
+        imu_msg.header.stamp = rospy.Time.now()
+
+        gps_msg = NavSatFix()
+        gps_msg.latitude = self.csv_data[index][1]
+        gps_msg.longitude = self.csv_data[index][2]
+        gps_msg.altitude = self.csv_data[index][3]
+        gps_msg.header.stamp = rospy.Time.now()
+
+        self.imu_publisher.publish(imu_msg)
+        self.gps_publisher.publish(gps_msg)
+
+
+if __name__=="__main__":
+    rospy.init_node('publish_csv_node')
+    rospack = rospkg.RosPack()
+    pkg_path = rospack.get_path('csv_data_pkg')
+    csvRosHandler = CsvRosHendler(os.path.join(pkg_path, 'data', 'video_log.csv'))
+    csvRosHandler.start_publihs_gps_imu()

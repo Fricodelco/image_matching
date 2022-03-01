@@ -31,8 +31,10 @@ class image_processing():
             raster = gdal.Open(data_path+'/'+filename)
             self.rasterArray = raster.ReadAsArray()
             self.rasterArray = np.dstack((self.rasterArray[0],self.rasterArray[1],self.rasterArray[2]))
-            # self.rasterArray = cv2.cvtColor(self.rasterArray, cv2.COLOR_RGB2GRAY)
-            self.rasterArray = self.rasterArray[:,:,2]
+            # self.rasterArray = self.brightness_norm(self.rasterArray)
+            self.rasterArray = self.clahe_m(self.rasterArray, 5)
+            # self.rasterArray = cv2.cvtColor(self.rasterArray, cv2.COLOR_BGR2GRAY)
+            self.rasterArray = self.rasterArray[:,:,0]
             norm_img = np.zeros(self.rasterArray.shape)
             self.rasterArray = cv2.normalize(self.rasterArray,  norm_img, 0, 255, cv2.NORM_MINMAX)
             # print(self.rasterArray.shape)
@@ -51,14 +53,13 @@ class image_processing():
                     self.main_points.append(point)
         else:
             self.rasterArray = img
-            print(self.rasterArray.shape)
+            self.rasterArray = self.clahe_m(self.rasterArray, 1)
+            # self.rasterArray = self.brightness_norm(self.rasterArray)
             # self.rasterArray = np.dstack((self.rasterArray[0],self.rasterArray[1],self.rasterArray[2]))
-            # self.rasterArray = cv2.cvtColor(self.rasterArray, cv2.COLOR_RGB2GRAY)
+            # self.rasterArray = cv2.cvtColor(self.rasterArray, cv2.COLOR_BGR2GRAY)
             self.rasterArray = self.rasterArray[:,:,2]
             norm_img = np.zeros(self.rasterArray.shape)
             self.rasterArray = cv2.normalize(self.rasterArray,  norm_img, 0, 255, cv2.NORM_MINMAX)
-            
-
         if height is not None:
             self.alt = height
         else:
@@ -81,7 +82,27 @@ class image_processing():
         pixel_size = (Decimal(pixel_size_1) + Decimal(pixel_size_2))/Decimal(2)
         self.pixel_size = pixel_size
         return pixel_size
+    
+    def clahe_m(self, img, param):
+        lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+        l, a, b = cv2.split(lab)
+        clahe = cv2.createCLAHE(clipLimit=param, tileGridSize=(8,8))
+        cl = clahe.apply(l)
+        limg = cv2.merge((cl,a,b))
+        final = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
+        return final
+    
+    def brightness_norm(self, img):
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        h,s,v = cv2.split(hsv)
+
+        h = cv2.equalizeHist(h)
+        s = cv2.equalizeHist(s)
+        v = cv2.equalizeHist(v)
         
+        hsv = cv2.merge((h,s,v))
+        bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+        return bgr
 # def main():
     # map_ = image_processing(filename = '26_12_2021_nn')
     # map_.find_pixel_size()

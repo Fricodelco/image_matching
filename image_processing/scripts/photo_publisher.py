@@ -32,7 +32,7 @@ class PhotoPublisher:
     def video_publisher(self):
         ret, frame = self.cap.read()
         print(frame.shape)
-        self.pub_image.publish(self.bridge.cv2_to_imgmsg(frame, "rgb8"))
+        self.pub_image.publish(self.bridge.cv2_to_imgmsg(frame, "bgr8"))
         self.pub_compressed_image.publish(self.bridge.cv2_to_compressed_imgmsg(frame))
 
 
