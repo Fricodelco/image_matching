@@ -30,8 +30,11 @@ class CsvRosHendler():
     
     def start_publihs_gps_imu(self)->None:
         for i, data in enumerate(self.csv_data):
-            rospy.sleep(data[0]-self.csv_data[0][0])
+            if i !=0:
+                rospy.sleep(data[0]-self.csv_data[i-1][0])
             self.__publish_gps_imu_data(i)
+            if rospy.is_shutdown():
+                break
 
     def __publish_gps_imu_data(self, index: int)->None:
         imu_msg = Imu()
