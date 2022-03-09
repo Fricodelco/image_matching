@@ -66,5 +66,5 @@ if __name__=="__main__":
     rospy.init_node('publish_csv_node')
     rospack = rospkg.RosPack()
     pkg_path = rospack.get_path('csv_data_pkg')
-    csvRosHandler = CsvRosHendler(os.path.join(pkg_path, 'data', 'video_log.csv'))
+    csvRosHandler = CsvRosHendler(os.path.join(pkg_path, 'data', 'log.csv'))
     csvRosHandler.start_publihs_gps_imu()
