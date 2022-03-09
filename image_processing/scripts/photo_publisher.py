@@ -19,8 +19,8 @@ class PhotoPublisher:
             self.photos_paths.sort()
         else:
             # self.cap = cv2.VideoCapture(data_path+'/05_03_2022/05.03.2022/flight2/C0001.mp4') 
-            # self.cap = cv2.VideoCapture(data_path+'/05_03_2022/flight_1/C_18fps.mp4')
-            self.cap = cv2.VideoCapture(data_path+'/500m'+'/500.mp4')
+            self.cap = cv2.VideoCapture(data_path+'/05_03_2022/flight_1/C_18fps.mp4')
+            # self.cap = cv2.VideoCapture(data_path+'/500m'+'/500.mp4')
             # self.cap = cv2.VideoCapture(data_path+'/600m'+'/600.mp4')
             fps = int(self.cap.get(cv2.CAP_PROP_FPS))
             # total = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -54,8 +54,8 @@ if __name__ == '__main__':
     rospack = rospkg.RosPack()
     pkg_path = rospack.get_path('csv_data_pkg')
     # csvRosHandler = CsvRosHendler(os.path.join(pkg_path, 'data', '001-acl.csv'))
-    # csvRosHandler = CsvRosHendler(os.path.join(pkg_path, 'data', '003-acl_222.csv'))
-    csvRosHandler = CsvRosHendler(os.path.join(pkg_path, 'data', 'video_log_5.csv'))
+    csvRosHandler = CsvRosHendler(os.path.join(pkg_path, 'data', '003-acl_222.csv'))
+    # csvRosHandler = CsvRosHendler(os.path.join(pkg_path, 'data', 'video_log_5.csv'))
     # csvRosHandler = CsvRosHendler(os.path.join(pkg_path, 'data', '600m.csv'))
     i = 0
     time_old = time()

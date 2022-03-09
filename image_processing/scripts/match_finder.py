@@ -101,9 +101,11 @@ class match_finder():
         roi_img = roi(img, 0, 0, map_.pixel_size)
         return roi_img
 
-    def roi_from_last_xy(self, map_, pixel_x, pixel_y, cadr, search_scale, yaw):
+    def roi_from_last_xy(self, map_, x_meter, y_meter, cadr, search_scale, yaw):
         #find the corners
         # if(abs(np.cos(yaw)) < np.cos(np.pi/4)):
+        pixel_x = x_meter/float(map_.pixel_size)
+        pixel_y = y_meter/float(map_.pixel_size)
         width = cadr.rasterArray.shape[1]*search_scale
         height = cadr.rasterArray.shape[0]*search_scale
         if width > height:
@@ -313,17 +315,27 @@ class match_finder():
         # roi = self.basicLinearTransform(roi, 1.0, 0.5)
         # cadr = self.basicLinearTransform(cadr, 1.5, 0.0)
         sum_roi = (np.sum(roi))/(roi.shape[0]*roi.shape[1])
-        sum_cadr = (np.sum(cadr))//(cadr.shape[0]*cadr.shape[1])
+        sum_cadr = (np.sum(cadr))/(cadr.shape[0]*cadr.shape[1])
+        # print(sum_roi, sum_cadr)
         rel = sum_roi/sum_cadr
         if rel <= 1:
-            cadr = self.basicLinearTransform(cadr, rel, 0.0)
+            # roi = self.basicLinearTransform(roi, rel, 0.0)
+            # cadr = self.basicLinearTransform(cadr, rel, 0.0)
+            # cadr = self.gammaCorrection(cadr, rel)
+            roi = self.gammaCorrection(roi, 1/rel)
         else:
-            roi = self.basicLinearTransform(roi, 1/rel, 0.0)
+            cadr = self.basicLinearTransform(cadr, rel, 0.0)
+            # roi = self.basicLinearTransform(roi, 1/rel, 0.0)
+            # roi = self.gammaCorrection(roi, 1/rel)
+            # cadr = self.gammaCorrection(cadr, 1/rel)
         # print(rel)
         # roi = self.gammaCorrection(roi, 0.4)
         # cadr = self.gammaCorrection(cadr, 0.4)
-        roi = cv2.equalizeHist(roi)
-        cadr = cv2.equalizeHist(cadr)
+        # roi = cv2.equalizeHist(roi)
+        # cadr = cv2.equalizeHist(cadr)
+        clahe = cv2.createCLAHE(clipLimit=30.0, tileGridSize=(8,8))
+        roi = clahe.apply(roi)
+        cadr = clahe.apply(cadr)
         return roi, cadr
 
     def basicLinearTransform(self, img_original, alpha, beta):
