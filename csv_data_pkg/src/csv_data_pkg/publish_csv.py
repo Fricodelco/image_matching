@@ -5,6 +5,7 @@ import csv
 import os
 import tf
 from sensor_msgs.msg import Imu, NavSatFix
+from numpy import pi
 
 class CsvRosHendler():
     def __init__(self, csv_file_path: str) -> None:
@@ -32,13 +33,17 @@ class CsvRosHendler():
         for i, data in enumerate(self.csv_data):
             if i !=0:
                 rospy.sleep(data[0]-self.csv_data[i-1][0])
-            self.__publish_gps_imu_data(i)
+            self.publish_gps_imu_data(i)
             if rospy.is_shutdown():
                 break
 
-    def __publish_gps_imu_data(self, index: int)->None:
+    def publish_gps_imu_data(self, index: int)->None:
         imu_msg = Imu()
         roll, pitch, yaw = self.csv_data[index][4], self.csv_data[index][5], self.csv_data[index][6]
+         
+        roll = roll/180.0*pi
+        pitch = pitch/180.0*pi
+        yaw = yaw/180.0*pi
         quaternion = tf.transformations.quaternion_from_euler(roll,pitch,yaw)
         imu_msg.orientation.x = quaternion[0]
         imu_msg.orientation.y = quaternion[1]

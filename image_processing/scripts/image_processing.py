@@ -32,11 +32,11 @@ class image_processing():
             self.rasterArray = raster.ReadAsArray()
             self.rasterArray = np.dstack((self.rasterArray[0],self.rasterArray[1],self.rasterArray[2]))
             # self.rasterArray = self.brightness_norm(self.rasterArray)
-            self.rasterArray = self.clahe_m(self.rasterArray, 5)
+            # self.rasterArray = self.clahe_m(self.rasterArray, 5)
             # self.rasterArray = cv2.cvtColor(self.rasterArray, cv2.COLOR_BGR2GRAY)
             self.rasterArray = self.rasterArray[:,:,0]
-            norm_img = np.zeros(self.rasterArray.shape)
-            self.rasterArray = cv2.normalize(self.rasterArray,  norm_img, 0, 255, cv2.NORM_MINMAX)
+            # norm_img = np.zeros(self.rasterArray.shape)
+            # self.rasterArray = cv2.normalize(self.rasterArray,  norm_img, 0, 255, cv2.NORM_MINMAX)
             # print(self.rasterArray.shape)
             with open(data_path+'/'+filename[:-4]+'.@@@') as f:
                 lines = f.readlines()
@@ -53,13 +53,13 @@ class image_processing():
                     self.main_points.append(point)
         else:
             self.rasterArray = img
-            self.rasterArray = self.clahe_m(self.rasterArray, 1)
+            # self.rasterArray = self.clahe_m(self.rasterArray, 1)
             # self.rasterArray = self.brightness_norm(self.rasterArray)
             # self.rasterArray = np.dstack((self.rasterArray[0],self.rasterArray[1],self.rasterArray[2]))
             # self.rasterArray = cv2.cvtColor(self.rasterArray, cv2.COLOR_BGR2GRAY)
             self.rasterArray = self.rasterArray[:,:,2]
-            norm_img = np.zeros(self.rasterArray.shape)
-            self.rasterArray = cv2.normalize(self.rasterArray,  norm_img, 0, 255, cv2.NORM_MINMAX)
+            # norm_img = np.zeros(self.rasterArray.shape)
+            # self.rasterArray = cv2.normalize(self.rasterArray,  norm_img, 0, 255, cv2.NORM_MINMAX)
         if height is not None:
             self.alt = height
         else:

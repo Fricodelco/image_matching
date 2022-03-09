@@ -49,17 +49,21 @@ def line_intersection(line1, line2):
     y = det(d, ydiff) / div
     return x, y
 
-def draw_circle_on_map_by_coord_and_angles(img, coord, circle_coord, pixel_size, roll, pitch, yaw):
-    img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+def draw_circle_on_map_by_coord_and_angles(img, coord, circle_coord, pixel_size, yaw, color):
+    try: img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    except: img = img
     g_c = GeodeticConvert()
     g_c.initialiseReference(coord[0], coord[1], 0)
-    x, y, z = g_c.geodetic2Ned(circle_coord[0], circle_coord[1], 0)
-    pixel_x = int(-x/float(pixel_size))
-    pixel_y = int(y/float(pixel_size))
+    y, x, z = g_c.geodetic2Ned(circle_coord[0], circle_coord[1], 0)
+    
+    pixel_x = int(x/float(pixel_size))
+    pixel_y = int(-y/float(pixel_size))
     x2 = int(pixel_x + 50 * np.cos(yaw))
-    y2 = int(pixel_y + 50 * np.sin(yaw))
-    img = cv2.line(img, (pixel_y, pixel_x), (y2, x2), (255,0,0), 5)
-    img = cv2.circle(img, (pixel_y, pixel_x), 10, (255,0,0), 2)
+    # x2 = pixel_x + 50
+    y2 = int(pixel_y - 50 * np.sin(yaw))
+    # y2 = pixel_y
+    img = cv2.line(img, (pixel_x, pixel_y), (x2, y2), color, 5)
+    img = cv2.circle(img, (pixel_x, pixel_y), 10, color, 2)
     return img
 
 def CrossProduct(A):
@@ -90,14 +94,14 @@ def isConvex(points, shape):
     # print(shape[0]/dist1, shape[1]/dist2)
     if shape[0]/dist1 < 0.5 or shape[1]/dist2 < 0.5 or shape[0]/dist1 > 1.5 or shape[1]/dist2 > 1.5:
         return False
-    print(shape, dist1, dist2)
+    # print(shape, dist1, dist2)
     angle_1 = angle(p[0], p[1], p[2])
     angle_2 = angle(p[1], p[2], p[3])
     angle_3 = angle(p[2], p[3], p[0])
     angle_4 = angle(p[3], p[0], p[1])
     # print(angle_1, angle_2, angle_3, angle_4)
-    print(abs(angle_1 - np.pi/2), abs(angle_2 - np.pi/2), abs(angle_3 - np.pi/2), abs(angle_4 - np.pi/2))
-    delta = 0.35
+    # print(abs(angle_1 - np.pi/2), abs(angle_2 - np.pi/2), abs(angle_3 - np.pi/2), abs(angle_4 - np.pi/2))
+    delta = 0.4
     if abs(angle_1 - np.pi/2) > delta:
         return False
     if abs(angle_2 - np.pi/2) > delta:

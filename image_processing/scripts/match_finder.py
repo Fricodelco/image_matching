@@ -21,7 +21,8 @@ class roi:
 
 class match_finder():
     def __init__(self):
-        self.optimal_size_x = 350
+        self.optimal_size_x = 250
+        # self.optimal_size_x = 150
         self.search_scale = 2
         self.roi_img = None
         self.percent_of_good_value = 1.0
@@ -35,30 +36,31 @@ class match_finder():
             scale = Decimal(pixel_size_map/pixel_size_cadr)
         return scale, map_pixel_bigger
 
-    def find_map_roi_by_coordinates(self, map_, cadr):
+    def find_map_roi_by_coordinates(self, map_, cadr, lat, lon, search_scale):
         #find the center of cadr coordinates at map
-        x, y, z, lat, lon = self.find_center_of_image(map_.main_points, cadr.main_points)
-        x = -x
-        if x < 0 or y < 0:
-            print("no match")
-            return 0
+        g_c = GeodeticConvert()
+        g_c.initialiseReference(map_.main_points[0].lat, map_.main_points[0].lon, 0)
+        y, x, z = g_c.geodetic2Ned(lat, lon, 0)
+        # if x < 0 or y < 0:
+            # print("no match")
+            # return 0
         #find the center pixel
         pixel_x = int(Decimal(x) / map_.pixel_size)
-        pixel_y = int(Decimal(y) / map_.pixel_size)
+        pixel_y = int(Decimal(-y) / map_.pixel_size)
         #find the corners
-        width = cadr.rasterArray.shape[1]*self.search_scale
-        height = cadr.rasterArray.shape[0]*self.search_scale
-        x_min = int(pixel_x - height/2)
-        x_max = int(pixel_x + height/2)
-        y_min = int(pixel_y - width/2)
-        y_max = int(pixel_y + width/2)
+        width = cadr.rasterArray.shape[1]*search_scale
+        height = cadr.rasterArray.shape[0]*search_scale
+        x_min = int(pixel_x - width/2)
+        x_max = int(pixel_x + width/2)
+        y_min = int(pixel_y - height/2)
+        y_max = int(pixel_y + height/2)
         if x_min < 0: x_min = 0
         if y_min < 0: y_min = 0
-        if x_max > map_.rasterArray.shape[0]: x_max = map_.rasterArray.shape[0]
-        if y_max > map_.rasterArray.shape[1]: y_max = map_.rasterArray.shape[1]
-        print(x_min, x_max, y_min, y_max)
+        if x_max > map_.rasterArray.shape[1]: x_max = map_.rasterArray.shape[1]
+        if y_max > map_.rasterArray.shape[0]: y_max = map_.rasterArray.shape[0]
+        # print(x_min, x_max, y_min, y_max)
         #save to structure
-        img = map_.rasterArray[x_min:x_max, y_min:y_max]
+        img = map_.rasterArray[y_min:y_max, x_min:x_max]
         roi_img = roi(img, x_min, y_min, map_.pixel_size)
         return roi_img
 
@@ -99,20 +101,28 @@ class match_finder():
         roi_img = roi(img, 0, 0, map_.pixel_size)
         return roi_img
 
-    def roi_from_last_xy(self, map_, pixel_x, pixel_y, cadr, search_scale):
+    def roi_from_last_xy(self, map_, pixel_x, pixel_y, cadr, search_scale, yaw):
         #find the corners
+        # if(abs(np.cos(yaw)) < np.cos(np.pi/4)):
         width = cadr.rasterArray.shape[1]*search_scale
         height = cadr.rasterArray.shape[0]*search_scale
-        x_min = int(pixel_x - height/2)
-        x_max = int(pixel_x + height/2)
-        y_min = int(pixel_y - width/2)
-        y_max = int(pixel_y + width/2)
+        if width > height:
+            height = width
+        else:
+            width = height
+        # else:
+            # width = cadr.rasterArray.shape[0]*search_scale
+            # height = cadr.rasterArray.shape[1]*search_scale
+        x_min = int(pixel_x - width/2)
+        x_max = int(pixel_x + width/2)
+        y_min = int(pixel_y - height/2)
+        y_max = int(pixel_y + height/2)
         if x_min < 0: x_min = 0
         if y_min < 0: y_min = 0
-        if x_max > map_.rasterArray.shape[0]: x_max = map_.rasterArray.shape[0]
-        if y_max > map_.rasterArray.shape[1]: y_max = map_.rasterArray.shape[1]
+        if x_max > map_.rasterArray.shape[1]: x_max = map_.rasterArray.shape[1]
+        if y_max > map_.rasterArray.shape[0]: y_max = map_.rasterArray.shape[0]
         #save to structure
-        img = map_.rasterArray[x_min:x_max, y_min:y_max]
+        img = map_.rasterArray[y_min:y_max, x_min:x_max]
         roi_img = roi(img, x_min, y_min, map_.pixel_size)
         return roi_img
 
@@ -155,19 +165,29 @@ class match_finder():
         good = []
         for m,n in matches:
             if m.distance < 0.9*n.distance:
+            # if m.distance < 0.8*n.distance:
                 good.append([m])
         img3 = cv2.drawMatchesKnn(img1,keypoints_1,img2,keypoints_2,good,None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
         # img3 = cv2.drawKeypoints(img1, keypoints_2, img2, color = (255, 20, 147))
         # cv2.imshow('img', img3)
         # cv2.waitKey(0) 
         # cv2.destroyAllWindows()        
-        return keypoints_1, keypoints_2, good, img3
-        
+        return keypoints_1, keypoints_2, good, img3, descriptors_1, descriptors_2
+
+    def find_good_matches(self, descriptors_1, descriptors_2):
+        bf = cv2.BFMatcher()
+        matches = bf.knnMatch(descriptors_2,descriptors_1,k=2)
+        # Apply ratio test
+        good = []
+        for m,n in matches:
+            if m.distance < 0.7*n.distance:
+                good.append([m])
+        return good
 
     def find_keypoints_transform(self, kp1, kp2, matches, img2, img1):
         src_pts = np.float32([ kp1[m[0].queryIdx].pt for m in matches]).reshape(-1,1,2)
         dst_pts = np.float32([ kp2[m[0].trainIdx].pt for m in matches]).reshape(-1,1,2)
-        M, mask = cv2.findHomography(src_pts, dst_pts, cv2.USAC_MAGSAC, 5.0)
+        M, mask = cv2.findHomography(src_pts, dst_pts, cv2.USAC_MAGSAC, 1.0)
         matchesMask = [[0,0] for i in range(len(matches))]
         h,w = img1.shape
         pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
@@ -193,22 +213,31 @@ class match_finder():
         else:
             return None, None, None, None, None, None, None
     
-    def solve_IK(self, x_center, y_center, roll, pitch, yaw, roi, map_):
+    def solve_IK(self, x_center, y_center, height, roll, pitch, yaw, roi, map_):
+        delta_pitch_pixels = -1*height*np.sin(pitch+0.3)/float(roi.pixel_size)
+        delta_roll_pixels = height*np.sin(roll)/float(roi.pixel_size)
+
+        x_center = x_center + delta_pitch_pixels*np.cos(yaw) + delta_roll_pixels*np.sin(yaw)
+        y_center = y_center - delta_pitch_pixels*np.sin(yaw) + delta_roll_pixels*np.cos(yaw)
+        # print(delta_roll_pixels*np.cos(yaw+np.pi/2), delta_roll_pixels*np.sin(yaw+np.pi/2))
+        # x_center = x_center + delta_roll_pixels*np.sin(yaw)
+        # y_center = y_center + delta_roll_pixels*np.sin(np.pi/2 -yaw)
+        
         scale_roi_to_map = roi.pixel_size/map_.pixel_size
         roi_shape_x = roi.img.shape[1] * float(scale_roi_to_map)
         roi_shape_y = roi.img.shape[0] * float(scale_roi_to_map)
         scaled_x_center = Decimal(Decimal(float(x_center))*scale_roi_to_map)
         scaled_y_center = Decimal(Decimal(float(y_center))*scale_roi_to_map)
-        x = Decimal(roi.pixel_x_main_map) + Decimal(scaled_y_center)
-        y = Decimal(roi.pixel_y_main_map) + Decimal(scaled_x_center)
+        y = Decimal(roi.pixel_y_main_map) + Decimal(scaled_y_center)
+        x = Decimal(roi.pixel_x_main_map) + Decimal(scaled_x_center)
         x_meter = x*map_.pixel_size
         y_meter = y*map_.pixel_size         
         g_c = GeodeticConvert()
         g_c.initialiseReference(map_.main_points[0].lat, map_.main_points[0].lon, 0)
         # # print(x_center*float(roi.pixel_size), y_center*float(roi.pixel_size))
         # print(x_meter, y_meter)
-        lat, lon, _ = g_c.ned2Geodetic(float(-x_meter), float(y_meter), 0)
-        return lat, lon, x, y
+        lat, lon, _ = g_c.ned2Geodetic(north=float(-y_meter), east=float(x_meter), down=0)
+        return lat, lon, x, y, x_meter, y_meter
         
 
     def get_angles_from_homography(self, H):
@@ -217,11 +246,11 @@ class match_finder():
         #[s c  0 0]
         #[0 0  1 0]
         #[0 0  0 1]
-        # u, _, vh = np.linalg.svd(H[0:2, 0:2])
-        # R = u @ vh
-        # yaw = np.arctan2(-R[1,0], R[0,0]) + np.pi
-        yaw = np.arctan2(-H[1,0], H[0,0]) + np.pi
-        #roll
+        u, _, vh = np.linalg.svd(H[0:2, 0:2])
+        R = u @ vh
+        yaw = np.arctan2(R[0,0], R[1,0])
+        # yaw = np.arctan2(H[1,0], H[0,0]) - np.pi
+        # roll
         #[1 0 0  0]
         #[0 c -s 0]
         #[0 s c  0]
@@ -266,15 +295,6 @@ class match_finder():
         cv2.destroyAllWindows()
     
 
-    def find_center_of_image(self, map_main_points, cadr_main_points):
-        lat = (cadr_main_points[0].lat + cadr_main_points[2].lat)/2
-        lon = (cadr_main_points[0].lon + cadr_main_points[2].lon)/2
-        g_c = GeodeticConvert()
-        g_c.initialiseReference(map_main_points[0].lat, map_main_points[0].lon, 0)
-        x, y, z = g_c.geodetic2Ned(lat, lon, 0)
-        return x, y, z, lat, lon
-        
-
     def resize_by_scale(self, rasterArray, pixel_size, scale):
         rasterArray = resize_img(rasterArray, scale)
         pixel_size = Decimal(pixel_size) / Decimal(scale)
@@ -289,3 +309,31 @@ class match_finder():
         final = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
         return clahe
 
+    def normalize_images(self, roi, cadr):
+        # roi = self.basicLinearTransform(roi, 1.0, 0.5)
+        # cadr = self.basicLinearTransform(cadr, 1.5, 0.0)
+        sum_roi = (np.sum(roi))/(roi.shape[0]*roi.shape[1])
+        sum_cadr = (np.sum(cadr))//(cadr.shape[0]*cadr.shape[1])
+        rel = sum_roi/sum_cadr
+        if rel <= 1:
+            cadr = self.basicLinearTransform(cadr, rel, 0.0)
+        else:
+            roi = self.basicLinearTransform(roi, 1/rel, 0.0)
+        # print(rel)
+        # roi = self.gammaCorrection(roi, 0.4)
+        # cadr = self.gammaCorrection(cadr, 0.4)
+        roi = cv2.equalizeHist(roi)
+        cadr = cv2.equalizeHist(cadr)
+        return roi, cadr
+
+    def basicLinearTransform(self, img_original, alpha, beta):
+        res = cv2.convertScaleAbs(img_original, alpha=alpha, beta=beta)
+        return res
+    
+    def gammaCorrection(self, img_original, gamma):
+        lookUpTable = np.empty((1,256), np.uint8)
+        for i in range(256):
+            lookUpTable[0,i] = np.clip(pow(i / 255.0, gamma) * 255.0, 0, 255)
+
+        res = cv2.LUT(img_original, lookUpTable)
+        return res
