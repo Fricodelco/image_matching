@@ -33,8 +33,6 @@ class PositionFinder:
         #create matcher object
         self.matcher = match_finder()
         #create global variables
-        self.last_x = 0
-        self.last_y = 0
         self.last_roi = None
         self.imu_roll = 0.0
         self.imu_pitch = 0.0
@@ -51,6 +49,7 @@ class PositionFinder:
         self.between_iter = 0
         self.north_filtered = np.zeros(5)
         self.east_filtered = np.zeros(5)
+        self.low_pass_time = time()
         #ros infrustructure
         self.sub_photo = rospy.Subscriber("photo",Image, self.photo_cb)
         self.sub_imu = rospy.Subscriber("imu", Imu, self.imu_cb)
@@ -85,7 +84,7 @@ class PositionFinder:
                                 self.main_map.rasterArray, self.main_map.pixel_size, scale)
             self.map_pixel_size = self.main_map.pixel_size
         #find match
-        lat, lon, roll, pitch, yaw = self.find_first_pose_without_roi(cadr)
+        self.find_first_pose_without_roi(cadr)
         
         
     def find_first_pose_without_roi(self, cadr):
@@ -93,20 +92,18 @@ class PositionFinder:
             # roi = self.matcher.roi_full_map(self.main_map)
             roi = self.matcher.find_map_roi_by_coordinates(self.main_map, cadr, self.lat_gps, self.lon_gps, 4)
             # self.first_cadr = False
-            self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(roi.img, "8UC1"))
         else:
             roi = self.matcher.roi_from_last_xy(self.main_map, float(self.x_meter), float(self.y_meter), cadr, 2.0, self.last_yaw)
-            
+        
+        self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(roi.img, "8UC1"))
+        
         percent_of_good, kp_1, kp_2, good, img_for_pub, cadr_rescaled, descriptors_1, descriptors_2 = self.find_matches(roi, cadr)
         #compare cadrs
         self.between_iter+=1
         north_speed = 0
         east_speed = 0
-        if self.between_iter > 0:
-            # try:
+        if self.between_iter > 2:
             north_speed, east_speed = self.compare_cadrs(kp_1, self.old_keypoints, descriptors_1, self.old_descriptors, cadr_rescaled, self.old_cadr)
-            # print("north speed: ",float('{:.3f}'.format(north_speed)), "east_speed: ", float('{:.3f}'.format(east_speed)))
-            # except Exception as e: print(e)
             self.old_cadr = cadr_rescaled
             self.old_keypoints = kp_1
             self.old_descriptors = descriptors_1
@@ -119,7 +116,6 @@ class PositionFinder:
             except Exception as e: x_center = None
         else:
             x_center = None
-        # x_center = None
         #show coordinates
         img = resize_img(self.main_map.rasterArray, 0.2)
         pixel_size = self.main_map.pixel_size/Decimal(0.2)
@@ -134,33 +130,40 @@ class PositionFinder:
                                     (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
                                     (lat_mezh, lon_mezh), pixel_size, (self.last_yaw), (255,0,255))
             
-        if x_center is not None and (abs(north_speed) < 90 or abs(east_speed) < 90):
+        if x_center is not None:# and (abs(north_speed) < 90 or abs(east_speed) < 90):
             self.pub_image.publish(self.bridge.cv2_to_imgmsg(img_tf, "8UC1"))
-            lat_zero, lon_zero, self.last_x, self.last_y, x_meter, y_meter = self.matcher.solve_IK(x_center, y_center, self.height, 0, 0, yaw, roi, self.main_map)
+            lat_zero, lon_zero,_ ,_ , x_meter, y_meter = self.matcher.solve_IK(x_center, y_center, self.height, 0, 0, yaw, roi, self.main_map)
             lat, lon, _, _, x_inc, y_inc = self.matcher.solve_IK(x_center, y_center, self.height,
                                         self.imu_roll, self.imu_pitch, yaw, roi, self.main_map)
-            # lat, lon, self.last_x, self.last_y, x_meter, y_meter = self.matcher.solve_IK(x_center, y_center, self.height, 0, 0, yaw, roi, self.main_map)
-                              
             self.last_yaw = yaw
-            self.x_meter = float(x_inc)
-            self.y_meter = float(y_inc)    
+            
+            #check if first cadr
             if self.first_cadr == True:
                 self.first_cadr = False
-
-            img = draw_circle_on_map_by_coord_and_angles(img,
+                self.x_meter = float(x_inc)
+                self.y_meter = float(y_inc)
+            #low pass check for coordinates
+            if self.low_pass_pose(float(x_inc), float(y_inc)) is True:
+                self.x_meter = float(x_inc)
+                self.y_meter = float(y_inc)
+                img = draw_circle_on_map_by_coord_and_angles(img,
                                         (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
                                         (lat, lon), pixel_size, (yaw), (255,0,0))
             
-            img = draw_circle_on_map_by_coord_and_angles(img,
+                img = draw_circle_on_map_by_coord_and_angles(img,
                                         (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
                                         (lat_zero, lon_zero), pixel_size, (yaw), (0,255,0))
-         # img = img[int(img.shape[0]*0.2):int(img.shape[0]*0.8), int(img.shape[1]*0.2):int(img.shape[1]*0.8)]
-            self.pub_pose_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))    
-            self.generate_and_send_pose(lat, lon, roll, pitch, yaw)
-            return lat, lon, roll, pitch, yaw
-            
+                # img = img[int(img.shape[0]*0.2):int(img.shape[0]*0.8), int(img.shape[1]*0.2):int(img.shape[1]*0.8)]
+                self.pub_pose_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))    
+        #send poses
+        if self.first_cadr == False:
+            g_c = GeodeticConvert()
+            g_c.initialiseReference(self.main_map.main_points[0].lat, self.main_map.main_points[0].lon, 0)
+            lat, lon, _ = g_c.ned2Geodetic(north=float(-self.y_meter), east=float(self.x_meter), down=0)
+            self.generate_and_send_pose(lat, lon, self.imu_roll, self.imu_pitch, self.last_yaw)
+
         self.pub_pose_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))    
-        return 0,0,0,0,0
+
     
     def compare_cadrs(self, kp_new, kp_old, descriptors_new, descriptors_old, cadr, cadr_old):
         try:
@@ -172,37 +175,48 @@ class PositionFinder:
                 kp_old, kp_new, good, cadr.rasterArray, cadr_old.rasterArray)
 
             self.pub_between_image.publish(self.bridge.cv2_to_imgmsg(img, "8UC1"))
-            self.last_yaw -= yaw_cadr-np.pi/2
             delta_y = -1*(x_center-cadr.rasterArray.shape[1]/2)*float(cadr.pixel_size)
             delta_x =  (y_center-cadr.rasterArray.shape[0]/2)*float(cadr.pixel_size)
-            x_trans = delta_x*np.cos(self.last_yaw) - delta_y*np.sin(self.last_yaw)
-            y_trans = -1*delta_x*np.sin(self.last_yaw) - delta_y*np.cos(self.last_yaw)
+            x_trans = delta_x*np.cos(self.last_yaw)# - delta_y*np.sin(self.last_yaw)
+            y_trans = -1*delta_x*np.sin(self.last_yaw)# - delta_y*np.cos(self.last_yaw)
             delta_time = time() - self.time_between_cadrs
             self.time_between_cadrs = time()
             # print(delta_time, yaw_cadr - np.pi/2)
             if delta_time < 2.0 and abs(yaw_cadr - np.pi/2) < 1.0:
-                # self.x_meter += x_trans
-                # self.y_meter += y_trans
                 north_speed = y_trans/delta_time
                 east_speed = x_trans/delta_time
                 north_speed, east_speed = self.filter_speed(north_speed, east_speed)
-                # print(north_speed, east_speed)
-                print("north speed: ",float('{:.3f}'.format(north_speed)), "east_speed: ", float('{:.3f}'.format(east_speed)), "yaw cadr: ", yaw_cadr)
-                self.x_meter += north_speed*delta_time
-                self.y_meter -= east_speed*delta_time
+                # print("north speed: ",float('{:.3f}'.format(north_speed)), "east_speed: ", float('{:.3f}'.format(east_speed)), "yaw cadr: ", yaw_cadr)
+                self.last_yaw += yaw_cadr-np.pi/2
+                self.x_meter += east_speed*delta_time
+                self.y_meter += north_speed*delta_time
                 return north_speed, east_speed
-        
         except: return 0,0
-                
+    
+    def low_pass_pose(self, x, y):
+        delta_time = time() - self.low_pass_time
+        delta_x = abs(self.x_meter - x)
+        delta_y = abs(self.y_meter - y)
+        vx = delta_x/delta_time
+        vy = delta_y/delta_time
+        print("north speed: ",float('{:.3f}'.format(vx)), "east_speed: ", float('{:.3f}'.format(vy)))
+        if vx > 40 or vy > 40:
+            return False
+        else:
+            self.low_pass_time = time()
+            return True
+
     def filter_speed(self, north_speed, east_speed):
-        for i in range(1, self.north_filtered.shape[0]):
-            self.north_filtered[i-1] = self.north_filtered[i]
-            self.east_filtered[i-1] = self.east_filtered[i]
-        self.north_filtered[4] = north_speed
-        self.east_filtered[4] = east_speed
-        north_speed = np.mean(self.north_filtered)
-        east_speed = np.mean(self.east_filtered)
-        # print(north_speed[0], east_speed)
+        if abs(north_speed) > 30 or abs(east_speed) > 30:
+            return 0.0, 0.0
+        # for i in range(1, self.north_filtered.shape[0]):
+        #     self.north_filtered[i-1] = self.north_filtered[i]
+        #     self.east_filtered[i-1] = self.east_filtered[i]
+        # self.north_filtered[4] = north_speed
+        # self.east_filtered[4] = east_speed
+        # north_speed = np.mean(self.north_filtered)
+        # east_speed = np.mean(self.east_filtered)
+        # # print(north_speed[0], east_speed)
         return north_speed, east_speed
 
     def generate_and_send_pose(self, lat, lon, roll, pitch, yaw):
@@ -238,9 +252,6 @@ class PositionFinder:
         cadr_rescaled = copy.deepcopy(cadr)
         roi.img, cadr_rescaled.rasterArray = self.matcher.normalize_images(roi.img, cadr_rescaled.rasterArray)
         roi, cadr_rescaled = self.matcher.rescale_for_optimal_sift(roi, cadr_rescaled)
-        # roi.img, cadr_rescaled.rasterArray = self.matcher.normalize_images(roi.img, cadr_rescaled.rasterArray)
-        # roi.img = cv2.equalizeHist(roi.img)
-        # cadr_rescaled.rasterArray = cv2.equalizeHist(cadr_rescaled.rasterArray)
         kp_1, kp_2, good, img_for_pub, descriptors_1, descriptors_2 = self.matcher.find_matches(roi.img, cadr_rescaled.rasterArray)
         try:
             percent_of_good = (len(good)/len(kp_1))*100
