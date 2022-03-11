@@ -65,14 +65,9 @@ class PositionFinder:
         print("Position Finder ready")
 
     def photo_cb(self, data):
-        time1 = time()
         image = self.bridge.imgmsg_to_cv2(data, "bgr8")
         cadr = image_processing(img = image)
-    
-        #find cadr pixel size
-        x = Decimal(np.tanh(self.poi/2)*2*self.height)
-        cadr.pixel_size = x/Decimal(image.shape[1])
-        
+        cadr.find_pixel_size_by_height(self.height, self.poi)
         #resize by pixel size
         scale, map_pixel_bigger = self.matcher.find_scale(self.map_pixel_size, cadr.pixel_size)
         if map_pixel_bigger is True:
@@ -88,10 +83,10 @@ class PositionFinder:
         
         
     def find_first_pose_without_roi(self, cadr):
+        #check if the cadr is first
         if self.first_cadr is True:
             # roi = self.matcher.roi_full_map(self.main_map)
             roi = self.matcher.find_map_roi_by_coordinates(self.main_map, cadr, self.lat_gps, self.lon_gps, 4)
-            # self.first_cadr = False
         else:
             roi = self.matcher.roi_from_last_xy(self.main_map, float(self.x_meter), float(self.y_meter), cadr, 2.0, self.last_yaw)
         
@@ -102,13 +97,17 @@ class PositionFinder:
         self.between_iter+=1
         north_speed = 0
         east_speed = 0
-        if self.between_iter > 2:
-            north_speed, east_speed = self.compare_cadrs(kp_1, self.old_keypoints, descriptors_1, self.old_descriptors, cadr_rescaled, self.old_cadr)
-            self.old_cadr = cadr_rescaled
-            self.old_keypoints = kp_1
-            self.old_descriptors = descriptors_1
-            self.between_iter = 0
-        
+        try:
+            if self.between_iter > 2:
+                north_speed, east_speed = self.compare_cadrs(kp_1, self.old_keypoints, descriptors_1, self.old_descriptors, cadr_rescaled, self.old_cadr)
+                self.old_cadr = cadr_rescaled
+                self.old_keypoints = kp_1
+                self.old_descriptors = descriptors_1
+                self.between_iter = 0
+        except: 
+            north_speed = 0
+            east_speed = 0
+
         self.pub_keypoints_image.publish(self.bridge.cv2_to_imgmsg(img_for_pub, "rgb8"))
         if(len(good)>4):
             try:
@@ -166,32 +165,27 @@ class PositionFinder:
 
     
     def compare_cadrs(self, kp_new, kp_old, descriptors_new, descriptors_old, cadr, cadr_old):
-        try:
-            good = self.matcher.find_good_matches(descriptors_new, descriptors_old)
-        # 
-        # print(len(good))
-        # if len(good) > 4:
-            x_center, y_center, roll, pitch, yaw_cadr, M, img = self.matcher.find_keypoints_transform(
-                kp_old, kp_new, good, cadr.rasterArray, cadr_old.rasterArray)
+        good = self.matcher.find_good_matches(descriptors_new, descriptors_old)
+        x_center, y_center, roll, pitch, yaw_cadr, M, img = self.matcher.find_keypoints_transform(
+            kp_old, kp_new, good, cadr.rasterArray, cadr_old.rasterArray)
 
-            self.pub_between_image.publish(self.bridge.cv2_to_imgmsg(img, "8UC1"))
-            delta_y = -1*(x_center-cadr.rasterArray.shape[1]/2)*float(cadr.pixel_size)
-            delta_x =  (y_center-cadr.rasterArray.shape[0]/2)*float(cadr.pixel_size)
-            x_trans = delta_x*np.cos(self.last_yaw)# - delta_y*np.sin(self.last_yaw)
-            y_trans = -1*delta_x*np.sin(self.last_yaw)# - delta_y*np.cos(self.last_yaw)
-            delta_time = time() - self.time_between_cadrs
-            self.time_between_cadrs = time()
-            # print(delta_time, yaw_cadr - np.pi/2)
-            if delta_time < 2.0 and abs(yaw_cadr - np.pi/2) < 1.0:
-                north_speed = y_trans/delta_time
-                east_speed = x_trans/delta_time
-                north_speed, east_speed = self.filter_speed(north_speed, east_speed)
-                # print("north speed: ",float('{:.3f}'.format(north_speed)), "east_speed: ", float('{:.3f}'.format(east_speed)), "yaw cadr: ", yaw_cadr)
-                self.last_yaw += yaw_cadr-np.pi/2
-                self.x_meter += east_speed*delta_time
-                self.y_meter += north_speed*delta_time
-                return north_speed, east_speed
-        except: return 0,0
+        self.pub_between_image.publish(self.bridge.cv2_to_imgmsg(img, "8UC1"))
+        delta_y = -1*(x_center-cadr.rasterArray.shape[1]/2)*float(cadr.pixel_size)
+        delta_x =  (y_center-cadr.rasterArray.shape[0]/2)*float(cadr.pixel_size)
+        x_trans = delta_x*np.cos(self.last_yaw)# - delta_y*np.sin(self.last_yaw)
+        y_trans = -1*delta_x*np.sin(self.last_yaw)# - delta_y*np.cos(self.last_yaw)
+        delta_time = time() - self.time_between_cadrs
+        self.time_between_cadrs = time()
+        # print(delta_time, yaw_cadr - np.pi/2)
+        if delta_time < 2.0 and abs(yaw_cadr - np.pi/2) < 1.0:
+            north_speed = y_trans/delta_time
+            east_speed = x_trans/delta_time
+            north_speed, east_speed = self.filter_speed(north_speed, east_speed)
+            # print("north speed: ",float('{:.3f}'.format(north_speed)), "east_speed: ", float('{:.3f}'.format(east_speed)), "yaw cadr: ", yaw_cadr)
+            self.last_yaw += yaw_cadr-np.pi/2
+            self.x_meter += east_speed*delta_time
+            self.y_meter += north_speed*delta_time
+            return north_speed, east_speed
     
     def low_pass_pose(self, x, y):
         delta_time = time() - self.low_pass_time
@@ -209,14 +203,6 @@ class PositionFinder:
     def filter_speed(self, north_speed, east_speed):
         if abs(north_speed) > 30 or abs(east_speed) > 30:
             return 0.0, 0.0
-        # for i in range(1, self.north_filtered.shape[0]):
-        #     self.north_filtered[i-1] = self.north_filtered[i]
-        #     self.east_filtered[i-1] = self.east_filtered[i]
-        # self.north_filtered[4] = north_speed
-        # self.east_filtered[4] = east_speed
-        # north_speed = np.mean(self.north_filtered)
-        # east_speed = np.mean(self.east_filtered)
-        # # print(north_speed[0], east_speed)
         return north_speed, east_speed
 
     def generate_and_send_pose(self, lat, lon, roll, pitch, yaw):
@@ -245,8 +231,8 @@ class PositionFinder:
     def gps_cb(self, data):
         self.lat_gps = data.latitude
         self.lon_gps = data.longitude
-        # self.height = data.altitude
-        self.height = 150
+        self.height = data.altitude
+        # self.height = 150
 
     def find_matches(self, roi, cadr):
         cadr_rescaled = copy.deepcopy(cadr)

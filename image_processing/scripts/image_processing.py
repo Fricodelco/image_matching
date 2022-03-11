@@ -21,7 +21,6 @@ class img_point:
 class image_processing():
     def __init__(self, filename = None, height = None, img = None):
         self.main_points = []
-        self.alt = 0
         self.g_c = GeodeticConvert()
         self.rasterArray = None
         self.pixel_size = 0
@@ -31,13 +30,7 @@ class image_processing():
             raster = gdal.Open(data_path+'/'+filename)
             self.rasterArray = raster.ReadAsArray()
             self.rasterArray = np.dstack((self.rasterArray[0],self.rasterArray[1],self.rasterArray[2]))
-            # self.rasterArray = self.brightness_norm(self.rasterArray)
-            # self.rasterArray = self.clahe_m(self.rasterArray, 5)
-            # self.rasterArray = cv2.cvtColor(self.rasterArray, cv2.COLOR_RGB2GRAY)
             self.rasterArray = self.rasterArray[:,:,0]
-            # norm_img = np.zeros(self.rasterArray.shape)
-            # self.rasterArray = cv2.normalize(self.rasterArray,  norm_img, 0, 255, cv2.NORM_MINMAX)
-            # print(self.rasterArray.shape)
             with open(data_path+'/'+filename[:-4]+'.@@@') as f:
                 lines = f.readlines()
                 for i in range(2, len(lines)):
@@ -53,22 +46,12 @@ class image_processing():
                     self.main_points.append(point)
         else:
             self.rasterArray = img
-            # self.rasterArray = self.clahe_m(self.rasterArray, 1)
-            # self.rasterArray = self.brightness_norm(self.rasterArray)
-            # self.rasterArray = np.dstack((self.rasterArray[0],self.rasterArray[1],self.rasterArray[2]))
-            # self.rasterArray = cv2.cvtColor(self.rasterArray, cv2.COLOR_BGR2GRAY)
             self.rasterArray = self.rasterArray[:,:,2]
-            # norm_img = np.zeros(self.rasterArray.shape)
-            # self.rasterArray = cv2.normalize(self.rasterArray,  norm_img, 0, 255, cv2.NORM_MINMAX)
-        if height is not None:
-            self.alt = height
-        else:
-            height = 2000
-    
+
     def find_pixel_size(self):
-        self.g_c.initialiseReference(self.main_points[0].lat, self.main_points[0].lon, self.alt)
-        x_1, y_1, z_1 = self.g_c.geodetic2Ned(self.main_points[1].lat, self.main_points[1].lon, self.alt)
-        x_2, y_2, z_2 = self.g_c.geodetic2Ned(self.main_points[3].lat, self.main_points[3].lon, self.alt)
+        self.g_c.initialiseReference(self.main_points[0].lat, self.main_points[0].lon, 0)
+        x_1, y_1, z_1 = self.g_c.geodetic2Ned(self.main_points[1].lat, self.main_points[1].lon, 0)
+        x_2, y_2, z_2 = self.g_c.geodetic2Ned(self.main_points[3].lat, self.main_points[3].lon, 0)
         if abs(x_1) > abs(x_2):
             x = x_1
         else:
@@ -82,7 +65,11 @@ class image_processing():
         pixel_size = (Decimal(pixel_size_1) + Decimal(pixel_size_2))/Decimal(2)
         self.pixel_size = pixel_size
         return pixel_size
-
+    
+    def find_pixel_size_by_height(self, height, poi):
+        x = Decimal(np.tanh(poi/2)*2*height)
+        self.pixel_size = x/Decimal(self.rasterArray.shape[1])
+        
 # def main():
     # map_ = image_processing(filename = '26_12_2021_nn')
     # map_.find_pixel_size()

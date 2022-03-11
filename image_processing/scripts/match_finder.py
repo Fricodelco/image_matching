@@ -138,26 +138,11 @@ class match_finder():
         
 
     def find_matches(self, img2, img1):
-        # self.img1 = self.clahe(img1)
-        # self.img2 = self.clahe(img2)
-        # surf = cv2.xfeatures2d.SIFT_create(nfeatures = 0,
-        #     nOctaveLayers = 4,
-        #     contrastThreshold = 0.04,
-        #     edgeThreshold = 10,
-        #     sigma = 1.6)
         surf = cv2.xfeatures2d.SIFT_create(nfeatures = 0,
             nOctaveLayers = 5,
             contrastThreshold = 0.1,
             edgeThreshold = 40,
             sigma = 1.6)
-        # surf = cv2.xfeatures2d.SURF_create(hessianThreshold = 400,
-        #                             nOctaves = 5,
-        #                             nOctaveLayers = 6,
-        #                             extended = False,
-        #                             upright = False)
-        # surf = cv2.BRISK_create()
-        # surf = cv2.ORB_create(nfeatures=1000, scaleFactor=1.2, nlevels=8, edgeThreshold=31, firstLevel=0, patchSize=31, fastThreshold=20)
-        
         keypoints_1, descriptors_1 = surf.detectAndCompute(img1,None)
         keypoints_2, descriptors_2 = surf.detectAndCompute(img2,None)
 
@@ -167,13 +152,8 @@ class match_finder():
         good = []
         for m,n in matches:
             if m.distance < 0.9*n.distance:
-            # if m.distance < 0.8*n.distance:
                 good.append([m])
-        img3 = cv2.drawMatchesKnn(img1,keypoints_1,img2,keypoints_2,good,None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-        # img3 = cv2.drawKeypoints(img1, keypoints_2, img2, color = (255, 20, 147))
-        # cv2.imshow('img', img3)
-        # cv2.waitKey(0) 
-        # cv2.destroyAllWindows()        
+        img3 = cv2.drawMatchesKnn(img1,keypoints_1,img2,keypoints_2,good,None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)     
         return keypoints_1, keypoints_2, good, img3, descriptors_1, descriptors_2
 
     def find_good_matches(self, descriptors_1, descriptors_2):
@@ -201,16 +181,6 @@ class match_finder():
             #draw
             img2 = cv2.circle(img2, (int(x_center), int(y_center)), 10, 255, 5)
             img2 = cv2.polylines(img2,[np.int32(dst)],True,255,3, cv2.LINE_AA)
-            draw_params = dict(matchColor = (0,255,0), # draw matches in green color
-                    singlePointColor = None,
-                    matchesMask = matchesMask, # draw only inliers
-                    flags = 2)
-            # img3 = cv2.drawMatchesKnn(img1,kp1,img2,kp2,matches,None, **draw_params)
-            # img = rotate_image(img1, (yaw/np.pi)*180)
-            # cv2.imshow('img2', img2)
-            # cv2.imshow('img1', img)
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()        
             return x_center, y_center, roll, pitch, yaw, M, img2
         else:
             return None, None, None, None, None, None, None
@@ -221,10 +191,6 @@ class match_finder():
 
         x_center = x_center + delta_pitch_pixels*np.cos(yaw) + delta_roll_pixels*np.sin(yaw)
         y_center = y_center - delta_pitch_pixels*np.sin(yaw) + delta_roll_pixels*np.cos(yaw)
-        # print(delta_roll_pixels*np.cos(yaw+np.pi/2), delta_roll_pixels*np.sin(yaw+np.pi/2))
-        # x_center = x_center + delta_roll_pixels*np.sin(yaw)
-        # y_center = y_center + delta_roll_pixels*np.sin(np.pi/2 -yaw)
-        
         scale_roi_to_map = roi.pixel_size/map_.pixel_size
         roi_shape_x = roi.img.shape[1] * float(scale_roi_to_map)
         roi_shape_y = roi.img.shape[0] * float(scale_roi_to_map)
@@ -236,8 +202,6 @@ class match_finder():
         y_meter = y*map_.pixel_size         
         g_c = GeodeticConvert()
         g_c.initialiseReference(map_.main_points[0].lat, map_.main_points[0].lon, 0)
-        # # print(x_center*float(roi.pixel_size), y_center*float(roi.pixel_size))
-        # print(x_meter, y_meter)
         lat, lon, _ = g_c.ned2Geodetic(north=float(-y_meter), east=float(x_meter), down=0)
         return lat, lon, x, y, x_meter, y_meter
         
@@ -272,44 +236,10 @@ class match_finder():
         roll = np.arctan2(H[0,2], H[2,2])
         return roll, pitch, yaw
 
-    def show_cadr_on_map(self):
-        g_c = GeodeticConvert()
-        g_c.initialiseReference(self.map.main_points[0].lat, self.map.main_points[0].lon, 0)
-        img = self.map.rasterArray
-        img = resize_img(img, 0.1)
-        i = 0
-        for point in self.cadr.main_points:
-            x, y, _ = g_c.geodetic2Ned(point.lat, point.lon, 0)
-            x = -x
-            pixel_x = int(Decimal(0.1*x) / self.map.pixel_size)
-            pixel_y = int(Decimal(0.1*y) / self.map.pixel_size)
-            cv2.circle(img, (pixel_y, pixel_x), 10, 63*i, 10)
-            i+=1
-        lat = (self.cadr.main_points[0].lat + self.cadr.main_points[2].lat)/2
-        lon = (self.cadr.main_points[0].lon + self.cadr.main_points[2].lon)/2
-        x, y, _ = g_c.geodetic2Ned(lat, lon, 0)
-        x = -x
-        pixel_x = int(Decimal(0.1*x) / self.map.pixel_size)
-        pixel_y = int(Decimal(0.1*y) / self.map.pixel_size)
-        cv2.circle(img, (pixel_y, pixel_x), 10, 255, 10)
-        cv2.imshow('img',img)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-    
-
     def resize_by_scale(self, rasterArray, pixel_size, scale):
         rasterArray = resize_img(rasterArray, scale)
         pixel_size = Decimal(pixel_size) / Decimal(scale)
         return rasterArray, pixel_size
-
-    def clahe(self, img):
-        lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
-        l, a, b = cv2.split(lab)
-        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
-        cl = clahe.apply(l)
-        limg = cv2.merge((cl,a,b))
-        final = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
-        return clahe
 
     def normalize_images(self, roi, cadr):
         # roi = self.basicLinearTransform(roi, 1.0, 0.5)
@@ -319,20 +249,9 @@ class match_finder():
         # print(sum_roi, sum_cadr)
         rel = sum_roi/sum_cadr
         if rel <= 1:
-            # roi = self.basicLinearTransform(roi, rel, 0.0)
-            # cadr = self.basicLinearTransform(cadr, rel, 0.0)
-            # cadr = self.gammaCorrection(cadr, rel)
-            roi = self.gammaCorrection(roi, 1/rel)
+            roi = self.basicLinearTransform(roi, 1/rel, 0.0)
         else:
             cadr = self.basicLinearTransform(cadr, rel, 0.0)
-            # roi = self.basicLinearTransform(roi, 1/rel, 0.0)
-            # roi = self.gammaCorrection(roi, 1/rel)
-            # cadr = self.gammaCorrection(cadr, 1/rel)
-        # print(rel)
-        # roi = self.gammaCorrection(roi, 0.4)
-        # cadr = self.gammaCorrection(cadr, 0.4)
-        # roi = cv2.equalizeHist(roi)
-        # cadr = cv2.equalizeHist(cadr)
         clahe = cv2.createCLAHE(clipLimit=30.0, tileGridSize=(8,8))
         roi = clahe.apply(roi)
         cadr = clahe.apply(cadr)
@@ -349,3 +268,4 @@ class match_finder():
 
         res = cv2.LUT(img_original, lookUpTable)
         return res
+    
