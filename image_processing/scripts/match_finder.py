@@ -21,8 +21,10 @@ class roi:
 
 class match_finder():
     def __init__(self):
+        #parameters
         self.optimal_size_x = 250
-        # self.optimal_size_x = 150
+        self.points_quality = 0.9
+        
         self.search_scale = 2
         self.roi_img = None
         self.percent_of_good_value = 1.0
@@ -151,7 +153,7 @@ class match_finder():
         # Apply ratio test
         good = []
         for m,n in matches:
-            if m.distance < 0.9*n.distance:
+            if m.distance < self.points_quality*n.distance:
                 good.append([m])
         img3 = cv2.drawMatchesKnn(img1,keypoints_1,img2,keypoints_2,good,None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)     
         return keypoints_1, keypoints_2, good, img3, descriptors_1, descriptors_2
@@ -162,7 +164,7 @@ class match_finder():
         # Apply ratio test
         good = []
         for m,n in matches:
-            if m.distance < 0.7*n.distance:
+            if m.distance < self.points_quality*n.distance:
                 good.append([m])
         return good
 
