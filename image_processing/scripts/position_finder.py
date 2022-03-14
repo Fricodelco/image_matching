@@ -17,10 +17,12 @@ from utils import resize_img, draw_circle_on_map_by_coord_and_angles
 import tf
 from geometry_msgs.msg import  Point, Pose, Quaternion, Twist, Vector3
 from geodetic_conv import GeodeticConvert
+import yaml
 
 class PositionFinder:
     def __init__(self):
         #load main map
+        self.config = self.load_params()
         self.main_map = image_processing('05_03_2022/2020_03_06_kor.TIF', 0)
         # self.main_map = image_processing('500m/Anapa_g.tif', 0)
         # self.main_map = image_processing('600m/Anapa2_g.tif', 0)
@@ -31,7 +33,7 @@ class PositionFinder:
         self.poi = 84/180.0*np.pi
         self.f = 7.7
         #create matcher object
-        self.matcher = match_finder()
+        self.matcher = match_finder(self.config)
         #create global variables
         self.last_roi = None
         self.imu_roll = 0.0
@@ -50,9 +52,23 @@ class PositionFinder:
         self.north_filtered = np.zeros(5)
         self.east_filtered = np.zeros(5)
         self.low_pass_time = time()
+        #load params
+        self.search_scale_for_roi_by_gps = self.config["search_scale_for_roi_by_gps"]
+        self.search_scale_for_roi_by_detection = self.config["search_scale_for_roi_by_detection"]
+        self.count_of_pictures_for_odometry = self.config["count_of_pictures_for_odometry"]
+        self.low_pass_speed = self.config["low_pass_speed"]
+        self.low_pass_coordinates = self.config["low_pass_coordinates"]
+        self.use_imu = self.config["use_imu"]
+        self.use_gps = self.config["use_gps"]
+        self.publish_roi_img = self.config["publish_roi_img"]
+        self.publish_keypoints_matches_img = self.config["publish_keypoints_matches_img"]
+        self.publish_between_img = self.config["publish_between_img"]
+        self.publish_calculated_pose_img = self.config["publish_calculated_pose_img"]
+        self.publish_tf_img = self.config["publish_tf_img"]
         #ros infrustructure
         self.sub_photo = rospy.Subscriber("photo",Image, self.photo_cb)
-        self.sub_imu = rospy.Subscriber("imu", Imu, self.imu_cb)
+        if self.use_imu is True:
+            self.sub_imu = rospy.Subscriber("imu", Imu, self.imu_cb)
         self.sub_gps = rospy.Subscriber("gps", NavSatFix, self.gps_cb)
         self.bridge = CvBridge()
         self.pub_image = rospy.Publisher('/find_transform', Image, queue_size=1)
@@ -86,21 +102,23 @@ class PositionFinder:
         #check if the cadr is first
         if self.first_cadr is True:
             # roi = self.matcher.roi_full_map(self.main_map)
-            roi = self.matcher.find_map_roi_by_coordinates(self.main_map, cadr, self.lat_gps, self.lon_gps, 4)
+            roi = self.matcher.find_map_roi_by_coordinates(self.main_map, cadr, self.lat_gps, self.lon_gps, self.search_scale_for_roi_by_gps)
         else:
-            roi = self.matcher.roi_from_last_xy(self.main_map, float(self.x_meter), float(self.y_meter), cadr, 2.0, self.last_yaw)
+            roi = self.matcher.roi_from_last_xy(self.main_map, float(self.x_meter), float(self.y_meter), cadr, self.search_scale_for_roi_by_detection, self.last_yaw)
         
-        self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(roi.img, "8UC1"))
+        if self.publish_roi_img is True:
+            self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(roi.img, "8UC1"))
         
         percent_of_good, kp_1, kp_2, good, img_for_pub, cadr_rescaled, descriptors_1, descriptors_2 = self.find_matches(roi, cadr)
         #compare cadrs
         self.between_iter+=1
         north_speed = 0
         east_speed = 0
+        yaw_speed = 0
         speed_limit = False
-        if self.between_iter > 2:
+        if self.between_iter > self.count_of_pictures_for_odometry:
             try:
-                north_speed, east_speed, speed_limit = self.compare_cadrs(kp_1, self.old_keypoints, descriptors_1, self.old_descriptors, cadr_rescaled, self.old_cadr)
+                north_speed, east_speed, speed_limit, yaw_speed = self.compare_cadrs(kp_1, self.old_keypoints, descriptors_1, self.old_descriptors, cadr_rescaled, self.old_cadr)
             except:
                 north_speed = 0
                 east_speed = 0
@@ -109,7 +127,9 @@ class PositionFinder:
             self.old_descriptors = descriptors_1
             self.between_iter = 0
         
-        self.pub_keypoints_image.publish(self.bridge.cv2_to_imgmsg(img_for_pub, "rgb8"))
+        if self.publish_keypoints_matches_img is True:
+            self.pub_keypoints_image.publish(self.bridge.cv2_to_imgmsg(img_for_pub, "rgb8"))
+        
         if(len(good)>4):
             try:
                 x_center, y_center, roll, pitch, yaw, M, img_tf = self.matcher.find_keypoints_transform(kp_1, kp_2, good, roi.img, cadr_rescaled.rasterArray)
@@ -131,10 +151,13 @@ class PositionFinder:
                                     (lat_mezh, lon_mezh), pixel_size, (self.last_yaw), (255,0,255))
             
         if x_center is not None and speed_limit is False:
-            self.pub_image.publish(self.bridge.cv2_to_imgmsg(img_tf, "8UC1"))
+            if self.publish_tf_img is True:
+                self.pub_image.publish(self.bridge.cv2_to_imgmsg(img_tf, "8UC1"))
+            
             lat_zero, lon_zero,_ ,_ , x_meter, y_meter = self.matcher.solve_IK(x_center, y_center, self.height, 0, 0, yaw, roi, self.main_map)
             lat, lon, _, _, x_inc, y_inc = self.matcher.solve_IK(x_center, y_center, self.height,
                                         self.imu_roll, self.imu_pitch, yaw, roi, self.main_map)
+            
             self.last_yaw = yaw
             
             #check if first cadr
@@ -161,16 +184,18 @@ class PositionFinder:
             g_c.initialiseReference(self.main_map.main_points[0].lat, self.main_map.main_points[0].lon, 0)
             lat, lon, _ = g_c.ned2Geodetic(north=float(-self.y_meter), east=float(self.x_meter), down=0)
             self.generate_and_send_pose(lat, lon, self.imu_roll, self.imu_pitch, self.last_yaw)
-            self.generate_and_send_vel(north_speed, east_speed)
-
-        self.pub_pose_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))    
+            self.generate_and_send_vel(north_speed, east_speed, yaw_speed)
+        
+        if self.publish_calculated_pose_img is True:
+            self.pub_pose_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))    
 
     
     def compare_cadrs(self, kp_new, kp_old, descriptors_new, descriptors_old, cadr, cadr_old):
         good = self.matcher.find_good_matches(descriptors_new, descriptors_old)
         x_center, y_center, roll, pitch, yaw_cadr, M, img = self.matcher.find_keypoints_transform(
             kp_old, kp_new, good, cadr.rasterArray, cadr_old.rasterArray)
-        self.pub_between_image.publish(self.bridge.cv2_to_imgmsg(img, "8UC1"))
+        if self.publish_between_img is True:
+            self.pub_between_image.publish(self.bridge.cv2_to_imgmsg(img, "8UC1"))
         delta_y = -1*(x_center-cadr.rasterArray.shape[1]/2)*float(cadr.pixel_size)
         delta_x =  (y_center-cadr.rasterArray.shape[0]/2)*float(cadr.pixel_size)
         x_trans = delta_x*np.cos(self.last_yaw)# - delta_y*np.sin(self.last_yaw)
@@ -182,21 +207,29 @@ class PositionFinder:
             north_speed = y_trans/delta_time
             east_speed = x_trans/delta_time
             speed_limit = False
-            if abs(north_speed) > 30 or abs(east_speed) > 30:
+            if abs(north_speed) > self.low_pass_speed or abs(east_speed) > self.low_pass_speed:
                 north_speed = 0
                 east_speed = 0
                 speed_limit = True
             # print("north speed: ",float('{:.3f}'.format(north_speed)), "east_speed: ", float('{:.3f}'.format(east_speed)), "yaw cadr: ", yaw_cadr)
             # print(speed_limit)
+            yaw_speed = -1*(yaw_cadr-np.pi/2)/delta_time
             self.last_yaw -= yaw_cadr-np.pi/2
             self.x_meter += east_speed*delta_time
             self.y_meter += north_speed*delta_time
-            return north_speed, east_speed, speed_limit
+            return north_speed, east_speed, speed_limit, yaw_speed 
     
-    def generate_and_send_vel(self, north_speed, east_speed):
+    def generate_and_send_vel(self, north_speed, east_speed, yaw_speed):
         msg = Odometry()
+        msg.header.stamp = rospy.Time.now()
         msg.twist.twist.linear.x = east_speed
         msg.twist.twist.linear.y = -north_speed
+        msg.twist.twist.angular.z = yaw_speed
+        odom_quat = tf.transformations.quaternion_from_euler(self.imu_roll, self.imu_pitch, self.last_yaw)
+        msg.pose.pose.orientation.x = odom_quat[0]
+        msg.pose.pose.orientation.y = odom_quat[1]
+        msg.pose.pose.orientation.z = odom_quat[2]
+        msg.pose.pose.orientation.w = odom_quat[3]
         self.pub_estimated_odom.publish(msg)
 
     def low_pass_pose(self, x, y):
@@ -206,7 +239,7 @@ class PositionFinder:
         vx = delta_x/delta_time
         vy = delta_y/delta_time
         # print("vx: ",float('{:.3f}'.format(vx)), "vy: ", float('{:.3f}'.format(vy)))
-        if vx > 50 or vy > 50:
+        if vx > self.low_pass_coordinates or vy > self.low_pass_coordinates:
             return False
         else:
             self.low_pass_time = time()
@@ -219,14 +252,7 @@ class PositionFinder:
         latlon_msg.altitude = self.height
         latlon_msg.header.stamp = rospy.Time.now()
         self.pub_latlon.publish(latlon_msg)
-        odom_msg = Odometry()
-        odom_msg.header.stamp = rospy.Time.now()
-        odom_quat = tf.transformations.quaternion_from_euler(roll, pitch, yaw)
-        odom_msg.pose.pose.position.x = roll
-        odom_msg.pose.pose.position.y = pitch
-        odom_msg.pose.pose.position.z = yaw
-        self.pub_estimated_odom.publish(odom_msg)
-
+        
     def imu_cb(self, data):
         quat = [0,0,0,0]
         quat[0] = data.orientation.x
@@ -251,6 +277,12 @@ class PositionFinder:
         except: percent_of_good = 0
         return percent_of_good, kp_1, kp_2, good, img_for_pub, cadr_rescaled, descriptors_1, descriptors_2
 
+    def load_params(self):
+        rospack = rospkg.RosPack()
+        data_path = rospack.get_path('image_processing') + '/config/config.yaml'
+        with open(data_path) as file:
+            params = yaml.full_load(file)
+        return params
         # print("here---------------------")
         # rolling_window_size_x = cadr.rasterArray.shape[0]*3.0
         # rolling_window_size_y = cadr.rasterArray.shape[1]*3.0

@@ -72,8 +72,8 @@ def CrossProduct(A):
     X2 = (A[2][0] - A[0][0])
     Y2 = (A[2][1] - A[0][1])
     return (X1 * Y2 - Y1 * X2)
-
-def isConvex(points, shape):
+        
+def isConvex(points, shape, angle_restriction_homography, low_scale_restriction_homography, high_scale_restriction_homography):
     p = []
     for point in points:
         p.append([point[0][0], point[0][1]])
@@ -92,7 +92,9 @@ def isConvex(points, shape):
     dist1 = calculate_euqlidian_dist(p[0], p[1])
     dist2 = calculate_euqlidian_dist(p[1], p[2])
     # print(shape[0]/dist1, shape[1]/dist2)
-    if shape[0]/dist1 < 0.5 or shape[1]/dist2 < 0.5 or shape[0]/dist1 > 1.5 or shape[1]/dist2 > 1.5:
+    ls = low_scale_restriction_homography
+    hs = high_scale_restriction_homography
+    if shape[0]/dist1 < ls or shape[1]/dist2 < ls or shape[0]/dist1 > hs or shape[1]/dist2 > hs:
         return False
     # print(shape, dist1, dist2)
     angle_1 = angle(p[0], p[1], p[2])
@@ -101,7 +103,7 @@ def isConvex(points, shape):
     angle_4 = angle(p[3], p[0], p[1])
     # print(angle_1, angle_2, angle_3, angle_4)
     # print(abs(angle_1 - np.pi/2), abs(angle_2 - np.pi/2), abs(angle_3 - np.pi/2), abs(angle_4 - np.pi/2))
-    delta = 0.4
+    delta = angle_restriction_homography
     if abs(angle_1 - np.pi/2) > delta:
         return False
     if abs(angle_2 - np.pi/2) > delta:

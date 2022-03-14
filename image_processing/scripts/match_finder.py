@@ -20,10 +20,18 @@ class roi:
 
 
 class match_finder():
-    def __init__(self):
+    def __init__(self, config):
         #parameters
-        self.optimal_size_x = 250
-        self.points_quality = 0.9
+        self.optimal_size_x = config["image_size_sift"]
+        self.points_quality = config["points_quality_sift"]
+        self.nOctaveLayers = config["nOctaveLayers_sift"]
+        self.contrastThreshold = config["contrastThreshold_sift"]
+        self.edgeThreshold = config["edgeThreshold_sift"]
+        self.sigma = config["sigma_sift"]
+        self.angle_restriction_homography = config["angle_restriction_homography"]
+        self.low_scale_restriction_homography = config["low_scale_restriction_homography"]
+        self.high_scale_restriction_homography = config["high_scale_restriction_homography"]
+        self.camera_pitch_angle = config["camera_pitch_angle"]
         
         self.search_scale = 2
         self.roi_img = None
@@ -141,10 +149,10 @@ class match_finder():
 
     def find_matches(self, img2, img1):
         surf = cv2.xfeatures2d.SIFT_create(nfeatures = 0,
-            nOctaveLayers = 5,
-            contrastThreshold = 0.1,
-            edgeThreshold = 40,
-            sigma = 1.6)
+            nOctaveLayers = self.nOctaveLayers,
+            contrastThreshold = self.contrastThreshold,
+            edgeThreshold = self.edgeThreshold,
+            sigma = self.sigma)
         keypoints_1, descriptors_1 = surf.detectAndCompute(img1,None)
         keypoints_2, descriptors_2 = surf.detectAndCompute(img2,None)
 
@@ -177,7 +185,9 @@ class match_finder():
         pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
         pts_vis = [[0,0],[0,h-1],[w-1,h-1],[w-1,0]]
         dst = cv2.perspectiveTransform(pts,M)
-        if isConvex(dst, img1.shape) is True:
+        isConv = isConvex(dst, img1.shape, self.angle_restriction_homography,
+                self.low_scale_restriction_homography, self.high_scale_restriction_homography) 
+        if isConv is True:
             roll, pitch, yaw = self.get_angles_from_homography(M)
             x_center, y_center = line_intersection((dst[0][0], dst[2][0]), (dst[1][0], dst[3][0]))
             #draw
@@ -188,7 +198,7 @@ class match_finder():
             return None, None, None, None, None, None, None
     
     def solve_IK(self, x_center, y_center, height, roll, pitch, yaw, roi, map_):
-        delta_pitch_pixels = -1*height*np.sin(pitch+0.3)/float(roi.pixel_size)
+        delta_pitch_pixels = -1*height*np.sin(pitch+self.camera_pitch_angle)/float(roi.pixel_size)
         delta_roll_pixels = height*np.sin(roll)/float(roi.pixel_size)
 
         x_center = x_center + delta_pitch_pixels*np.cos(yaw) + delta_roll_pixels*np.sin(yaw)
