@@ -23,9 +23,9 @@ class PositionFinder:
     def __init__(self):
         #load main map
         self.config = self.load_params()
-        self.main_map = image_processing('05_03_2022/2020_03_06_kor.TIF', 0)
+        # self.main_map = image_processing('05_03_2022/2020_03_06_kor.TIF', 0)
         # self.main_map = image_processing('500m/Anapa_g.tif', 0)
-        # self.main_map = image_processing('600m/Anapa2_g.tif', 0)
+        self.main_map = image_processing('600m/Anapa2_g.tif', 0)
         self.map_pixel_size = self.main_map.find_pixel_size()
         self.first_cadr = True
         self.height = 150
@@ -222,6 +222,7 @@ class PositionFinder:
     def generate_and_send_vel(self, north_speed, east_speed, yaw_speed):
         msg = Odometry()
         msg.header.stamp = rospy.Time.now()
+        msg.header.frame_id = 'base_link'
         msg.twist.twist.linear.x = east_speed
         msg.twist.twist.linear.y = -north_speed
         msg.twist.twist.angular.z = yaw_speed
@@ -251,6 +252,7 @@ class PositionFinder:
         latlon_msg.longitude = lon
         latlon_msg.altitude = self.height
         latlon_msg.header.stamp = rospy.Time.now()
+        latlon_msg.header.frame_id = 'base_link'
         self.pub_latlon.publish(latlon_msg)
         
     def imu_cb(self, data):
@@ -264,8 +266,8 @@ class PositionFinder:
     def gps_cb(self, data):
         self.lat_gps = data.latitude
         self.lon_gps = data.longitude
-        # self.height = data.altitude
-        self.height = 150
+        self.height = data.altitude
+        # self.height = 150
 
     def find_matches(self, roi, cadr):
         cadr_rescaled = copy.deepcopy(cadr)
