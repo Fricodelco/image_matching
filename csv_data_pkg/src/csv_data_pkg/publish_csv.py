@@ -10,6 +10,7 @@ from std_msgs.msg import Float32, String
 
 class CsvRosHendler():
     def __init__(self, csv_file_path: str) -> None:
+        #ros
         self.csv_data = []
         self.time_stamps = []
         self.csv_file_path = csv_file_path
