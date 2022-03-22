@@ -238,6 +238,7 @@ class BaseRegressionFilter():
         new_msg.header.stamp = rospy.Time.now()
         new_msg.latitude = new_lat
         new_msg.longitude = new_lon
+        new_msg.altitude = msg.altitude
         self.filter_gps_publisher.publish(new_msg)
            
 

@@ -31,7 +31,7 @@ class Logger:
         self.realtime = params["realtime"]
         home = os.getenv("HOME")
         self.data_path = home+'/copa5/created_csv/log.csv'
-        self.sub_latlon = rospy.Subscriber('/coordinates_by_img', NavSatFix, self.latlon_cb, queue_size=1)
+        self.sub_latlon = rospy.Subscriber('/filtered_gps', NavSatFix, self.latlon_cb, queue_size=1)
         # self.sub_estimated_odom = rospy.Subscriber('/odom_by_img', Odometry, self.odom_cb, queue_size=1)
         self.sub_imu = rospy.Subscriber('/imu', Imu, self.imu_cb, queue_size=1)
         if self.realtime is False:

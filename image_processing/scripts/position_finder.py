@@ -50,6 +50,8 @@ class PositionFinder:
         self.x_meter = 0
         self.y_meter = 0
         self.between_iter = 0
+        self.filtered_lat = 0.0
+        self.filtered_lon = 0.0
         self.north_filtered = np.zeros(5)
         self.east_filtered = np.zeros(5)
         self.low_pass_time = time()
@@ -88,7 +90,8 @@ class PositionFinder:
         if self.publish_keypoints_matches_img is True:
             self.pub_keypoints_image = rospy.Publisher('/keypoints_matches', Image, queue_size=1)
         if self.publish_calculated_pose_img is True:
-            self.pub_pose_image = rospy.Publisher('/calculated_pose', Image, queue_size=1)        
+            self.pub_pose_image = rospy.Publisher('/calculated_pose', Image, queue_size=1)
+            self.sub_filter_gps_publisher = rospy.Subscriber('/filtered_gps', NavSatFix, self.filter_cb)        
         if self.publish_between_img is True:
             self.pub_between_image = rospy.Publisher('/between_image', Image, queue_size=1)
         self.pub_latlon = rospy.Publisher('/coordinates_by_img', NavSatFix, queue_size=1)
@@ -209,7 +212,11 @@ class PositionFinder:
         img = draw_circle_on_map_by_coord_and_angles(img,
                                     (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
                                     (lat_mezh, lon_mezh), pixel_size, (self.last_yaw), (255,0,255))
-            
+       
+        img = draw_circle_on_map_by_coord_and_angles(img,
+                                    (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
+                                    (self.filtered_lat, self.filtered_lon), pixel_size, (self.last_yaw), (255,255,255))
+        
         if x_center is not None and speed_limit is False:
             if self.publish_tf_img is True:
                 self.pub_image.publish(self.bridge.cv2_to_imgmsg(img_tf, "8UC1"))
@@ -330,7 +337,11 @@ class PositionFinder:
     def gps_cb(self, data):
         self.lat_gps = data.latitude
         self.lon_gps = data.longitude
-        
+    
+    def filter_cb(self, data):
+        self.filtered_lat = data.latitude
+        self.filtered_lon = data.longitude
+
     def baro_cb(self, data):
         self.height_init = True
         self.height = data.data

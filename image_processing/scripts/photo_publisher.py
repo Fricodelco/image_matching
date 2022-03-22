@@ -43,6 +43,7 @@ class PhotoPublisher:
             
             fps = int(self.cap.get(cv2.CAP_PROP_FPS))
             self.rate = fps
+            self.iterator = 0
         self.pub_image = rospy.Publisher('/photo', Image, queue_size=1)
         self.pub_compressed_image = rospy.Publisher('/compressed_photo', CompressedImage, queue_size=1)
         self.bridge = CvBridge()
@@ -57,8 +58,11 @@ class PhotoPublisher:
 
     def video_publisher(self):
         ret, frame = self.cap.read()
-        self.pub_image.publish(self.bridge.cv2_to_imgmsg(frame, "bgr8"))
-        self.pub_compressed_image.publish(self.bridge.cv2_to_compressed_imgmsg(frame))
+        if self.iterator > self.rate/10:
+            self.pub_image.publish(self.bridge.cv2_to_imgmsg(frame, "bgr8"))
+            self.pub_compressed_image.publish(self.bridge.cv2_to_compressed_imgmsg(frame))
+            self.iterator = 0
+        self.iterator+=1
 
     def load_params(self):
         home = os.getenv("HOME")
