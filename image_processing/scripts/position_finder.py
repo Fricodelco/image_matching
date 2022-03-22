@@ -11,6 +11,7 @@ from match_finder import match_finder
 from time import time
 from sensor_msgs.msg import Image, Imu, CompressedImage, NavSatFix
 from nav_msgs.msg import Odometry
+from std_msgs.msg import Float32
 from cv_bridge import CvBridge
 import copy
 from utils import resize_img, draw_circle_on_map_by_coord_and_angles
@@ -18,17 +19,17 @@ import tf
 from geometry_msgs.msg import  Point, Pose, Quaternion, Twist, Vector3
 from geodetic_conv import GeodeticConvert
 import yaml
+import os
 
 class PositionFinder:
     def __init__(self):
         #load main map
         self.config = self.load_params()
         # self.main_map = image_processing('05_03_2022/2020_03_06_kor.TIF', 0)
-        # self.main_map = image_processing('500m/Anapa_g.tif', 0)
-        self.main_map = image_processing('600m/Anapa2_g.tif', 0)
+        self.main_map = image_processing(filename=self.config["map_name"])
+        # self.main_map = image_processing('600m/Anapa2_g.tif', 0)
         self.map_pixel_size = self.main_map.find_pixel_size()
         self.first_cadr = True
-        self.height = 150
         #camera params
         self.poi = 84/180.0*np.pi
         self.f = 7.7
@@ -52,63 +53,122 @@ class PositionFinder:
         self.north_filtered = np.zeros(5)
         self.east_filtered = np.zeros(5)
         self.low_pass_time = time()
+        self.rois = []
+        self.first_rolling = True
+        self.height_init = False
         #load params
         self.search_scale_for_roi_by_gps = self.config["search_scale_for_roi_by_gps"]
         self.search_scale_for_roi_by_detection = self.config["search_scale_for_roi_by_detection"]
+        self.search_scale_for_roi_by_rolling_window = self.config["search_scale_for_roi_by_rolling_window"]
         self.count_of_pictures_for_odometry = self.config["count_of_pictures_for_odometry"]
         self.low_pass_speed = self.config["low_pass_speed"]
         self.low_pass_coordinates = self.config["low_pass_coordinates"]
         self.use_imu = self.config["use_imu"]
         self.use_gps = self.config["use_gps"]
+        self.use_baro = self.config["use_baro"]
+        self.height = self.config["height"]
         self.publish_roi_img = self.config["publish_roi_img"]
         self.publish_keypoints_matches_img = self.config["publish_keypoints_matches_img"]
         self.publish_between_img = self.config["publish_between_img"]
         self.publish_calculated_pose_img = self.config["publish_calculated_pose_img"]
         self.publish_tf_img = self.config["publish_tf_img"]
         #ros infrustructure
-        self.sub_photo = rospy.Subscriber("photo",Image, self.photo_cb)
         if self.use_imu is True:
             self.sub_imu = rospy.Subscriber("imu", Imu, self.imu_cb)
+        # if self.use_gps is True:
         self.sub_gps = rospy.Subscriber("gps", NavSatFix, self.gps_cb)
+        if self.use_baro is True:
+            self.sub_baro = rospy.Subscriber("baro", Float32, self.baro_cb)
+        self.sub_photo = rospy.Subscriber("photo",Image, self.photo_cb)
         self.bridge = CvBridge()
-        self.pub_image = rospy.Publisher('/find_transform', Image, queue_size=1)
-        self.pub_roi_image = rospy.Publisher('/roi', Image, queue_size=1)
-        self.pub_keypoints_image = rospy.Publisher('/keypoints_matches', Image, queue_size=1)
-        self.pub_pose_image = rospy.Publisher('/calculated_pose', Image, queue_size=1)        
-        self.pub_between_image = rospy.Publisher('/between_image', Image, queue_size=1)
+        if self.publish_tf_img is True:
+            self.pub_image = rospy.Publisher('/find_transform', Image, queue_size=1)
+        if self.publish_roi_img is True:
+            self.pub_roi_image = rospy.Publisher('/roi', Image, queue_size=1)
+        if self.publish_keypoints_matches_img is True:
+            self.pub_keypoints_image = rospy.Publisher('/keypoints_matches', Image, queue_size=1)
+        if self.publish_calculated_pose_img is True:
+            self.pub_pose_image = rospy.Publisher('/calculated_pose', Image, queue_size=1)        
+        if self.publish_between_img is True:
+            self.pub_between_image = rospy.Publisher('/between_image', Image, queue_size=1)
         self.pub_latlon = rospy.Publisher('/coordinates_by_img', NavSatFix, queue_size=1)
         self.pub_estimated_odom = rospy.Publisher('/odom_by_img', Odometry, queue_size=1)
         print("Position Finder ready")
 
     def photo_cb(self, data):
-        image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-        cadr = image_processing(img = image)
-        cadr.find_pixel_size_by_height(self.height, self.poi)
-        #resize by pixel size
-        scale, map_pixel_bigger = self.matcher.find_scale(self.map_pixel_size, cadr.pixel_size)
-        if map_pixel_bigger is True:
-            cadr.rasterArray, cadr.pixel_size = self.matcher.resize_by_scale(
-                                    cadr.rasterArray, cadr.pixel_size, scale)
-        else:
-            #need copy of full size map for future
-            self.main_map.rasterArray, self.main_map.pixel_size = self.matcher.resize_by_scale(
-                                self.main_map.rasterArray, self.main_map.pixel_size, scale)
-            self.map_pixel_size = self.main_map.pixel_size
-        #find match
-        self.find_first_pose_without_roi(cadr)
+        if (self.use_baro is True and self.height_init is True) or self.use_baro is False:
+            image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+            cadr = image_processing(img = image)
+            cadr.find_pixel_size_by_height(self.height, self.poi)
+            #resize by pixel size
+            scale, map_pixel_bigger = self.matcher.find_scale(self.map_pixel_size, cadr.pixel_size)
+            if map_pixel_bigger is True:
+                cadr.rasterArray, cadr.pixel_size = self.matcher.resize_by_scale(
+                                        cadr.rasterArray, cadr.pixel_size, scale)
+            else:
+                #need copy of full size map for future
+                self.main_map.rasterArray, self.main_map.pixel_size = self.matcher.resize_by_scale(
+                                    self.main_map.rasterArray, self.main_map.pixel_size, scale)
+                self.map_pixel_size = self.main_map.pixel_size
+            #find match
+            self.find_pose(cadr)
         
         
-    def find_first_pose_without_roi(self, cadr):
+    def find_pose(self, cadr):
         #check if the cadr is first
         if self.first_cadr is True:
             # roi = self.matcher.roi_full_map(self.main_map)
-            roi = self.matcher.find_map_roi_by_coordinates(self.main_map, cadr, self.lat_gps, self.lon_gps, self.search_scale_for_roi_by_gps)
+            if self.use_gps == True:
+                roi = self.matcher.find_map_roi_by_coordinates(self.main_map, cadr, self.lat_gps, self.lon_gps, self.search_scale_for_roi_by_gps)
+                if roi is not False:
+                    cadr_rescaled = copy.deepcopy(cadr)
+                    roi, cadr_rescaled = self.matcher.rescale_for_optimal_sift(roi, cadr_rescaled)
+                    roi.kp, roi.dp = self.matcher.find_kp_dp(roi.img)
+                    clahe = cv2.createCLAHE(clipLimit=30.0, tileGridSize=(8,8))
+                    cadr_rescaled.rasterArray = clahe.apply(cadr_rescaled.rasterArray)  
+                    self.pose_from_roi(roi, cadr_rescaled)
+                    if self.publish_roi_img is True:
+                        self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(roi.img, "8UC1"))
+            else:
+                if self.first_rolling == True:
+                    rolling_window_size_x = cadr.rasterArray.shape[1]*self.search_scale_for_roi_by_rolling_window
+                    rolling_window_size_y = cadr.rasterArray.shape[1]*self.search_scale_for_roi_by_rolling_window
+                    roi_borders = self.matcher.roi_from_map(self.main_map, rolling_window_size_x, rolling_window_size_y)
+                    for border in roi_borders:
+                        roi = self.matcher.create_roi_from_border(self.main_map, border)
+                        cadr_rescaled = copy.deepcopy(cadr)
+                        roi, cadr_rescaled = self.matcher.rescale_for_optimal_sift(roi, cadr_rescaled)
+                        roi.kp, roi.dp = self.matcher.find_kp_dp(roi.img)        
+                        self.rois.append(roi)
+                        if self.publish_roi_img is True:
+                            self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(roi.img, "8UC1"))
+                    self.first_rolling = False
+                else:
+                    cadr_rescaled = copy.deepcopy(cadr)
+                    cadr_rescaled = self.matcher.rescale_cadr(cadr)
+                    clahe = cv2.createCLAHE(clipLimit=30.0, tileGridSize=(8,8))
+                    cadr_rescaled.rasterArray = clahe.apply(cadr_rescaled.rasterArray)
+                    for roi in self.rois:
+                        # print(cadr_rescaled.rasterArray.shape)
+                        pose = self.pose_from_roi(roi, cadr_rescaled)
+                        if self.publish_roi_img is True:
+                            self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(roi.img, "8UC1"))
+                        if pose == True:
+                            return True                    
         else:
             roi = self.matcher.roi_from_last_xy(self.main_map, float(self.x_meter), float(self.y_meter), cadr, self.search_scale_for_roi_by_detection, self.last_yaw)
+            cadr_rescaled = copy.deepcopy(cadr)
+            roi, cadr_rescaled = self.matcher.rescale_for_optimal_sift(roi, cadr_rescaled)
+            roi.kp, roi.dp = self.matcher.find_kp_dp(roi.img)        
+            clahe = cv2.createCLAHE(clipLimit=30.0, tileGridSize=(8,8))
+            cadr_rescaled.rasterArray = clahe.apply(cadr_rescaled.rasterArray)
+            self.pose_from_roi(roi, cadr_rescaled)
+            if self.publish_roi_img is True:
+                self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(roi.img, "8UC1"))
         
-        if self.publish_roi_img is True:
-            self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(roi.img, "8UC1"))
-        
+            
+
+    def pose_from_roi(self, roi, cadr):
         percent_of_good, kp_1, kp_2, good, img_for_pub, cadr_rescaled, descriptors_1, descriptors_2 = self.find_matches(roi, cadr)
         #compare cadrs
         self.between_iter+=1
@@ -130,7 +190,7 @@ class PositionFinder:
         if self.publish_keypoints_matches_img is True:
             self.pub_keypoints_image.publish(self.bridge.cv2_to_imgmsg(img_for_pub, "rgb8"))
         
-        if(len(good)>4):
+        if(len(good)>10):
             try:
                 x_center, y_center, roll, pitch, yaw, M, img_tf = self.matcher.find_keypoints_transform(kp_1, kp_2, good, roi.img, cadr_rescaled.rasterArray)
             except Exception as e: x_center = None
@@ -178,6 +238,7 @@ class PositionFinder:
                                         (lat_zero, lon_zero), pixel_size, (yaw), (0,255,0))
                 # img = img[int(img.shape[0]*0.2):int(img.shape[0]*0.8), int(img.shape[1]*0.2):int(img.shape[1]*0.8)]
                 self.pub_pose_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))    
+                return True
         #send poses
         if self.first_cadr == False:
             g_c = GeodeticConvert()
@@ -188,7 +249,10 @@ class PositionFinder:
         
         if self.publish_calculated_pose_img is True:
             self.pub_pose_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))    
-
+        if x_center is not None:
+            return True
+        else:
+            return False
     
     def compare_cadrs(self, kp_new, kp_old, descriptors_new, descriptors_old, cadr, cadr_old):
         good = self.matcher.find_good_matches(descriptors_new, descriptors_old)
@@ -266,53 +330,54 @@ class PositionFinder:
     def gps_cb(self, data):
         self.lat_gps = data.latitude
         self.lon_gps = data.longitude
-        self.height = data.altitude
-        # self.height = 150
+        
+    def baro_cb(self, data):
+        self.height_init = True
+        self.height = data.data
 
-    def find_matches(self, roi, cadr):
-        cadr_rescaled = copy.deepcopy(cadr)
-        roi.img, cadr_rescaled.rasterArray = self.matcher.normalize_images(roi.img, cadr_rescaled.rasterArray)
-        roi, cadr_rescaled = self.matcher.rescale_for_optimal_sift(roi, cadr_rescaled)
-        kp_1, kp_2, good, img_for_pub, descriptors_1, descriptors_2 = self.matcher.find_matches(roi.img, cadr_rescaled.rasterArray)
+    def find_matches(self, roi, cadr_rescaled):
+        kp_1, kp_2, good, img_for_pub, descriptors_1, descriptors_2 = self.matcher.find_matches(roi, cadr_rescaled.rasterArray)
         try:
             percent_of_good = (len(good)/len(kp_1))*100
         except: percent_of_good = 0
         return percent_of_good, kp_1, kp_2, good, img_for_pub, cadr_rescaled, descriptors_1, descriptors_2
 
     def load_params(self):
-        rospack = rospkg.RosPack()
-        data_path = rospack.get_path('image_processing') + '/config/config.yaml'
+        home = os.getenv("HOME")
+        data_path = home+'/copa5/config/config.yaml'
         with open(data_path) as file:
             params = yaml.full_load(file)
         return params
+    
+    def roi_with_window(self, i):
         # print("here---------------------")
-        # rolling_window_size_x = cadr.rasterArray.shape[0]*3.0
-        # rolling_window_size_y = cadr.rasterArray.shape[1]*3.0
-        # roi_borders = self.matcher.roi_from_map(self.main_map, rolling_window_size_x, rolling_window_size_y)
-        # percents = []
-        # for border in roi_borders:
-        #     roi = self.matcher.create_roi_from_border(self.main_map, border)
-        #     percent_of_good,_,_,_,_,_ = self.find_matches(roi, cadr)
-        #     percents.append(percent_of_good)
-        # max_value = max(percents)
-        # max_index = percents.index(max_value)
+        rolling_window_size_x = cadr.rasterArray.shape[0]*3.0
+        rolling_window_size_y = cadr.rasterArray.shape[1]*3.0
+        roi_borders = self.matcher.roi_from_map(self.main_map, rolling_window_size_x, rolling_window_size_y)
+        percents = []
+        for border in roi_borders:
+            roi = self.matcher.create_roi_from_border(self.main_map, border)
+            percent_of_good,_,_,_,_,_ = self.find_matches(roi, cadr)
+            percents.append(percent_of_good)
+        max_value = max(percents)
+        max_index = percents.index(max_value)
         # print(max_value, max_index)
-        # if max_value < 0.1:
-        #     return 0,0
-        # else:
-        #     roi = self.matcher.create_roi_from_border(self.main_map, roi_borders[max_index])
-        #     percent_of_good, kp_1, kp_2, good, img_for_pub, cadr_rescaled = self.find_matches(roi, cadr)
-        #     x_center, y_center, roll, pitch, yaw, M, img = self.matcher.find_keypoints_transform(kp_1, kp_2, good, roi.img, cadr_rescaled.rasterArray)
-        #     # lat, lon = self.matcher.solve_IK(x_center, y_center, roll, pitch, yaw, roi, self.main_map)
-        #     # img = resize_img(self.main_map.rasterArray, 0.2)
-        #     # pixel_size = self.main_map.pixel_size/Decimal(0.2)
-        #     # img = draw_circle_on_map_by_coord(img,
-        #                                 # (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
-        #                                 # (lat, lon), pixel_size)
-        #     self.pub_image.publish(self.bridge.cv2_to_imgmsg(img, "8UC1"))
+        if max_value < 0.1:
+            return 0,0
+        else:
+            roi = self.matcher.create_roi_from_border(self.main_map, roi_borders[max_index])
+            percent_of_good, kp_1, kp_2, good, img_for_pub, cadr_rescaled = self.find_matches(roi, cadr)
+            x_center, y_center, roll, pitch, yaw, M, img = self.matcher.find_keypoints_transform(kp_1, kp_2, good, roi.img, cadr_rescaled.rasterArray)
+            # lat, lon = self.matcher.solve_IK(x_center, y_center, roll, pitch, yaw, roi, self.main_map)
+            # img = resize_img(self.main_map.rasterArray, 0.2)
+            # pixel_size = self.main_map.pixel_size/Decimal(0.2)
+            # img = draw_circle_on_map_by_coord(img,
+                                        # (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
+                                        # (lat, lon), pixel_size)
+            self.pub_image.publish(self.bridge.cv2_to_imgmsg(img, "8UC1"))
 
-        #     self.pub_image.publish(self.bridge.cv2_to_imgmsg(img_for_pub, "rgb8"))
-            # print(percent_of_good)
+            self.pub_image.publish(self.bridge.cv2_to_imgmsg(img_for_pub, "rgb8"))
+            print(percent_of_good)
 
 if __name__ == '__main__':
     rospy.init_node('position_finder')

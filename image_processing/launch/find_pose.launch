@@ -1,0 +1,5 @@
+<launch>
+  <node pkg="image_processing" type="position_finder.py" name="position_finder"/>
+  <node pkg="image_processing" type="logger.py" name="logger"/>
+  <node pkg="image_processing" type="photo_publisher.py" name="photo_publisher"/>
+</launch>
