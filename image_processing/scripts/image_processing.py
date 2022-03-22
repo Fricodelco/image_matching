@@ -10,6 +10,7 @@ import gdal
 from dataclasses import dataclass
 from geodetic_conv import GeodeticConvert
 from decimal import Decimal
+import os
 
 @dataclass
 class img_point:
@@ -19,19 +20,27 @@ class img_point:
     lon: float = 0.0
 
 class image_processing():
-    def __init__(self, filename = None, height = None, img = None):
+    def __init__(self, filename = None, img = None):
         self.main_points = []
         self.g_c = GeodeticConvert()
         self.rasterArray = None
         self.pixel_size = 0
         if filename is not None:
-            rospack = rospkg.RosPack()
-            data_path = rospack.get_path('image_processing') + '/data'
-            raster = gdal.Open(data_path+'/'+filename)
+            home = os.getenv("HOME")
+            data_path = home+'/copa5/map'
+            file_exists = os.path.exists(data_path+'/'+filename+'.tif')
+            try:
+                if file_exists is True:
+                    raster = gdal.Open(data_path+'/'+filename+'.tif')
+                else:
+                    raster = gdal.Open(data_path+'/'+filename+'.TIF')
+            except:
+                print("NO MAP FILE")
+                return None
             self.rasterArray = raster.ReadAsArray()
             self.rasterArray = np.dstack((self.rasterArray[0],self.rasterArray[1],self.rasterArray[2]))
             self.rasterArray = self.rasterArray[:,:,0]
-            with open(data_path+'/'+filename[:-4]+'.@@@') as f:
+            with open(data_path+'/'+filename+'.@@@') as f:
                 lines = f.readlines()
                 for i in range(2, len(lines)):
                     sub_str = lines[i].split(' ')

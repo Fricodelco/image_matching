@@ -14,11 +14,13 @@ import math
 @dataclass
 class roi:
     img: np.ndarray
+    kp: tuple
+    dp: np.ndarray
+    pixel_size: None
     pixel_x_main_map: int = 0
     pixel_y_main_map: int = 0
-    pixel_size: float = 0.0
-
-
+    
+    
 class match_finder():
     def __init__(self, config):
         #parameters
@@ -71,28 +73,41 @@ class match_finder():
         # print(x_min, x_max, y_min, y_max)
         #save to structure
         img = map_.rasterArray[y_min:y_max, x_min:x_max]
-        roi_img = roi(img, x_min, y_min, map_.pixel_size)
+        roi_img = roi(img = img, kp = None, dp = None,
+                pixel_size = map_.pixel_size, pixel_x_main_map = x_min, pixel_y_main_map = y_min)    
         return roi_img
 
     def roi_from_map(self, map_, rl_size_x, rl_size_y):
-        map_shape_x = map_.rasterArray.shape[0]
-        map_shape_y = map_.rasterArray.shape[1]
-        count_x = math.ceil(map_shape_x/rl_size_x)
-        count_y = math.ceil(map_shape_y/rl_size_y)
+        map_shape_x = map_.rasterArray.shape[1]
+        map_shape_y = map_.rasterArray.shape[0]
+        div_x = map_shape_x/rl_size_x
+        div_y = map_shape_y/rl_size_y
+        drob_x, cel_x = math.modf(div_x)
+        drob_y, cel_y = math.modf(div_y)
+        if cel_x != 0:
+            step_x = rl_size_x + ((map_shape_x - rl_size_x*cel_x)/cel_x)
+        else:
+            step_x = map_shape_x
+        if cel_y != 0:    
+            step_y = rl_size_y + ((map_shape_y - rl_size_y*cel_x)/cel_y)
+        else:
+            step_y = map_shape_y
         borders = []
-        for i in range(0, count_x*2 - 2):
-            for j in range(0, count_y*2 - 2):
-                x_min = int(((rl_size_x/2)*i))
-                x_max = int(x_min + (rl_size_x))
-                y_min = int(((rl_size_y/2)*j))
-                y_max = int(y_min+(rl_size_y))
-                if x_min < 0: x_min = 0
-                if y_min < 0: y_min = 0
-                if x_max > map_.rasterArray.shape[0]: x_max = map_.rasterArray.shape[0]
-                if y_max > map_.rasterArray.shape[1]: y_max = map_.rasterArray.shape[1]
+        for x in range(0, int(map_shape_x), int(step_x)):
+            x_min = int(x)
+            x_max = int(x+step_x+step_x*0.1)
+            if x_max > map_shape_x:
+                 x_max = map_shape_x
+            if x_max - x_min < step_x/5:
+                break 
+            for y in range(0, int(map_shape_y), int(step_y)):
+                y_min = int(y)
+                y_max = int(y+step_y+step_y*0.1)
+                if y_max > map_shape_y:
+                    y_max = map_shape_y
+                if y_max - y_min < step_y/5:
+                    break
                 borders.append([x_min, x_max, y_min, y_max])
-        # roi_img = roi(img, x_min, y_min, map_.pixel_size)
-        # return roi_img
         return borders
     
     def create_roi_from_border(self, map_, border):
@@ -101,8 +116,9 @@ class match_finder():
         y_min = border[2]
         y_max = border[3]
         img = map_.rasterArray[x_min:x_max, y_min:y_max]
-        roi_ = roi(img, x_min, y_min, map_.pixel_size)
-        return roi_    
+        roi_ = roi(img = img, kp = None, dp = None,
+                pixel_size = map_.pixel_size, pixel_x_main_map = x_min, pixel_y_main_map = y_min)    
+        return roi_
 
     def roi_full_map(self, map_):
         # shape = map_.rasterArray.shape
@@ -135,7 +151,8 @@ class match_finder():
         if y_max > map_.rasterArray.shape[0]: y_max = map_.rasterArray.shape[0]
         #save to structure
         img = map_.rasterArray[y_min:y_max, x_min:x_max]
-        roi_img = roi(img, x_min, y_min, map_.pixel_size)
+        roi_img = roi(img = img, kp = None, dp = None,
+                pixel_size = map_.pixel_size, pixel_x_main_map = x_min, pixel_y_main_map = y_min)    
         return roi_img
 
     def rescale_for_optimal_sift(self, roi, cadr):
@@ -145,26 +162,41 @@ class match_finder():
         roi.img = resize_img(roi.img, optimal_scale_for_cadr)
         roi.pixel_size = roi.pixel_size/Decimal(optimal_scale_for_cadr)
         return roi, cadr
-        
+    
+    def rescale_cadr(self, cadr):
+        optimal_scale_for_cadr = self.optimal_size_x/cadr.rasterArray.shape[1]
+        cadr.rasterArray = resize_img(cadr.rasterArray, optimal_scale_for_cadr)
+        cadr.pixel_size = cadr.pixel_size/Decimal(optimal_scale_for_cadr)
+        return cadr
 
-    def find_matches(self, img2, img1):
+    def find_matches(self, roi, img1): #roi, cadr
         surf = cv2.xfeatures2d.SIFT_create(nfeatures = 0,
             nOctaveLayers = self.nOctaveLayers,
             contrastThreshold = self.contrastThreshold,
             edgeThreshold = self.edgeThreshold,
             sigma = self.sigma)
         keypoints_1, descriptors_1 = surf.detectAndCompute(img1,None)
-        keypoints_2, descriptors_2 = surf.detectAndCompute(img2,None)
-
+        # keypoints_2, descriptors_2 = surf.detectAndCompute(img2,None)
         bf = cv2.BFMatcher()
-        matches = bf.knnMatch(descriptors_1,descriptors_2,k=2)
+        matches = bf.knnMatch(descriptors_1,roi.dp,k=2)
         # Apply ratio test
         good = []
         for m,n in matches:
             if m.distance < self.points_quality*n.distance:
                 good.append([m])
-        img3 = cv2.drawMatchesKnn(img1,keypoints_1,img2,keypoints_2,good,None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)     
-        return keypoints_1, keypoints_2, good, img3, descriptors_1, descriptors_2
+        img3 = cv2.drawMatchesKnn(img1, keypoints_1, roi.img, roi.kp, good,None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)     
+        return keypoints_1, roi.kp, good, img3, descriptors_1, roi.dp
+
+    def find_kp_dp(self, img):
+        clahe = cv2.createCLAHE(clipLimit=30.0, tileGridSize=(8,8))
+        img = clahe.apply(img)
+        surf = cv2.xfeatures2d.SIFT_create(nfeatures = 0,
+            nOctaveLayers = self.nOctaveLayers,
+            contrastThreshold = self.contrastThreshold,
+            edgeThreshold = self.edgeThreshold,
+            sigma = self.sigma)
+        keypoints_1, descriptors_1 = surf.detectAndCompute(img, None)
+        return keypoints_1, descriptors_1
 
     def find_good_matches(self, descriptors_1, descriptors_2):
         bf = cv2.BFMatcher()
@@ -259,11 +291,11 @@ class match_finder():
         sum_roi = (np.sum(roi))/(roi.shape[0]*roi.shape[1])
         sum_cadr = (np.sum(cadr))/(cadr.shape[0]*cadr.shape[1])
         # print(sum_roi, sum_cadr)
-        rel = sum_roi/sum_cadr
-        if rel <= 1:
-            roi = self.basicLinearTransform(roi, 1/rel, 0.0)
-        else:
-            cadr = self.basicLinearTransform(cadr, rel, 0.0)
+        # rel = sum_roi/sum_cadr
+        # if rel <= 1:
+            # roi = self.basicLinearTransform(roi, 1/rel, 0.0)
+        # else:
+            # cadr = self.basicLinearTransform(cadr, rel, 0.0)
         clahe = cv2.createCLAHE(clipLimit=30.0, tileGridSize=(8,8))
         roi = clahe.apply(roi)
         cadr = clahe.apply(cadr)

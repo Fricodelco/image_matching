@@ -6,13 +6,17 @@ import os
 import tf
 from sensor_msgs.msg import Imu, NavSatFix
 from numpy import pi
+from std_msgs.msg import Float32, String
 
 class CsvRosHendler():
     def __init__(self, csv_file_path: str) -> None:
         self.csv_data = []
+        self.time_stamps = []
         self.csv_file_path = csv_file_path
         self.imu_publisher = rospy.Publisher('/imu', Imu, queue_size=10)
         self.gps_publisher = rospy.Publisher('/gps', NavSatFix, queue_size=10)
+        self.baro_publisher = rospy.Publisher('/baro', Float32, queue_size=10)
+        self.str_publisher = rospy.Publisher('/csv_time', String, queue_size=10)
         self.__parse_csv_data()
     
     def __parse_csv_data(self) -> None:
@@ -23,6 +27,7 @@ class CsvRosHendler():
                     time = self.__parse_time_to_sec(line[0])
                     data = list(map(float ,line[1:]))
                     self.csv_data.append([time]+data)
+                    self.time_stamps.append(line[0])
 
     def __parse_time_to_sec(self, date: str) -> float:
         split_date = list(map(float,date.split(':')))
@@ -57,10 +62,16 @@ class CsvRosHendler():
         gps_msg.longitude = self.csv_data[index][2]
         gps_msg.altitude = self.csv_data[index][3]
         gps_msg.header.stamp = rospy.Time.now()
+        
+        baro_msg = Float32()
+        baro_msg.data = self.csv_data[index][3]
 
+        str_msg = String()
+        str_msg.data = str(self.time_stamps[index])
         self.imu_publisher.publish(imu_msg)
         self.gps_publisher.publish(gps_msg)
-
+        self.baro_publisher.publish(baro_msg)
+        self.str_publisher.publish(str_msg)
 
 if __name__=="__main__":
     rospy.init_node('publish_csv_node')
