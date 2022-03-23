@@ -36,6 +36,7 @@ class CsvRosHendler():
         return sec
     
     def start_publihs_gps_imu(self)->None:
+        rospy.sleep(7)
         for i, data in enumerate(self.csv_data):
             if i !=0:
                 rospy.sleep(data[0]-self.csv_data[i-1][0])
