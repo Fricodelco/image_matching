@@ -66,7 +66,7 @@ class PhotoPublisher:
             return True
         except:
             return False
-
+        
     def load_params(self):
         home = os.getenv("HOME")
         data_path = home+'/copa5/config/config.yaml'
@@ -77,9 +77,9 @@ class PhotoPublisher:
 
 if __name__ == '__main__':
     rospy.init_node('photo_publisher')
-    rospy.sleep(15)
+    # rospy.sleep(15)
     photo_publisher = PhotoPublisher(photo = False)
-    rospy.sleep(10)
+    # rospy.sleep(10)
     if photo_publisher.done is not None:
         rate = rospy.Rate(photo_publisher.rate)
         path = photo_publisher.data_path
@@ -97,10 +97,12 @@ if __name__ == '__main__':
         # csvRosHandler = CsvRosHendler(os.path.join(pkg_path, 'data', '001-acl - 2222.csv'))
         i = 0
         time_old = time()
+        rospy.loginfo("PHOTO")
         while not rospy.is_shutdown():
             answer = photo_publisher.video_publisher()
             if answer == False:
                 break
             rate.sleep()
+        rospy.loginfo("VIDEO ENDED")
         thread.join()
-        print("VIDEO ENDED")
+        

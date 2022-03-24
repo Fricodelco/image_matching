@@ -43,6 +43,7 @@ class CsvRosHendler():
             self.publish_gps_imu_data(i)
             if rospy.is_shutdown():
                 break
+        print("CSV END")
 
     def publish_gps_imu_data(self, index: int)->None:
         imu_msg = Imu()
