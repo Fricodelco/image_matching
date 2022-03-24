@@ -102,7 +102,6 @@ class PositionFinder:
         if (self.use_baro is True and self.height_init is True) or self.use_baro is False:
             image = self.bridge.imgmsg_to_cv2(data, "8UC1")
             cadr = image_processing(img = image)
-            print(self.height)
             cadr.find_pixel_size_by_height(self.height, self.poi)
             #resize by pixel size
             scale, map_pixel_bigger = self.matcher.find_scale(self.map_pixel_size, cadr.pixel_size)
@@ -123,6 +122,7 @@ class PositionFinder:
         if self.first_cadr is True:
             # roi = self.matcher.roi_full_map(self.main_map)
             if self.use_gps == True:
+                # print(self.lat_gps, self.lon_gps)
                 roi = self.matcher.find_map_roi_by_coordinates(self.main_map, cadr, self.lat_gps, self.lon_gps, self.search_scale_for_roi_by_gps)
                 if roi is not False:
                     cadr_rescaled = copy.deepcopy(cadr)
@@ -154,7 +154,8 @@ class PositionFinder:
                     cadr_rescaled.rasterArray = clahe.apply(cadr_rescaled.rasterArray)
                     for roi in self.rois:
                         # print(cadr_rescaled.rasterArray.shape)
-                        pose = self.pose_from_roi(roi, cadr_rescaled)
+                        cadr_rescaled_copy = copy.deepcopy(cadr_rescaled)
+                        pose = self.pose_from_roi(roi, cadr_rescaled_copy)
                         if self.publish_roi_img is True:
                             self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(roi.img, "8UC1"))
                         if pose == True:
