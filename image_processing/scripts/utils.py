@@ -94,8 +94,8 @@ def isConvex(points, shape, angle_restriction_homography, low_scale_restriction_
     # print(shape[0]/dist1, shape[1]/dist2)
     ls = low_scale_restriction_homography
     hs = high_scale_restriction_homography
-    if shape[0]/dist1 < ls or shape[1]/dist2 < ls or shape[0]/dist1 > hs or shape[1]/dist2 > hs:
-        return False
+    # if shape[0]/dist1 < ls or shape[1]/dist2 < ls or shape[0]/dist1 > hs or shape[1]/dist2 > hs:
+        # return False
     # print(shape, dist1, dist2)
     angle_1 = angle(p[0], p[1], p[2])
     angle_2 = angle(p[1], p[2], p[3])
@@ -104,14 +104,14 @@ def isConvex(points, shape, angle_restriction_homography, low_scale_restriction_
     # print(angle_1, angle_2, angle_3, angle_4)
     # print(abs(angle_1 - np.pi/2), abs(angle_2 - np.pi/2), abs(angle_3 - np.pi/2), abs(angle_4 - np.pi/2))
     delta = angle_restriction_homography
-    if abs(angle_1 - np.pi/2) > delta:
-        return False
-    if abs(angle_2 - np.pi/2) > delta:
-        return False
-    if abs(angle_3 - np.pi/2) > delta:
-        return False
-    if abs(angle_4 - np.pi/2) > delta:
-        return False
+    # if abs(angle_1 - np.pi/2) > delta:
+    #     return False
+    # if abs(angle_2 - np.pi/2) > delta:
+    #     return False
+    # if abs(angle_3 - np.pi/2) > delta:
+    #     return False
+    # if abs(angle_4 - np.pi/2) > delta:
+    #     return False
     
     # print(shape[0]/dist1, shape[1]/dist2)
     return True

@@ -175,6 +175,13 @@ class match_finder():
             contrastThreshold = self.contrastThreshold,
             edgeThreshold = self.edgeThreshold,
             sigma = self.sigma)
+        # surf = cv2.xfeatures2d.SURF_create(hessianThreshold = 300,
+        #                             nOctaves = 20,
+        #                             nOctaveLayers = 5,
+        #                             extended = True,
+        #                             upright = False)
+        
+
         keypoints_1, descriptors_1 = surf.detectAndCompute(img1,None)
         # keypoints_2, descriptors_2 = surf.detectAndCompute(img2,None)
         bf = cv2.BFMatcher()
@@ -195,6 +202,12 @@ class match_finder():
             contrastThreshold = self.contrastThreshold,
             edgeThreshold = self.edgeThreshold,
             sigma = self.sigma)
+        # surf = cv2.xfeatures2d.SURF_create(hessianThreshold = 300,
+        #                             nOctaves = 20,
+        #                             nOctaveLayers = 5,
+        #                             extended = True,
+        #                             upright = False)
+        
         keypoints_1, descriptors_1 = surf.detectAndCompute(img, None)
         return keypoints_1, descriptors_1
 
