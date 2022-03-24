@@ -24,7 +24,7 @@ class  PhotoPublisher{
         Mat frame;
         Mat frame_gray;
         cap_ >> frame;
-        cv::extractChannel(frame, frame_gray, 2);
+        extractChannel(frame, frame_gray, 2);
         if(counter > fps/target_fps){
             counter = 0;
             std_msgs::Header header; 
