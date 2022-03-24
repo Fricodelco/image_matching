@@ -56,7 +56,7 @@ catkin_package(
 #  CATKIN_DEPENDS cv_bridge geometry_msgs nav_msgs roscpp rospy sensor_msgs std_msgs
 #  DEPENDS system_lib
 )
-
+find_package(OpenCV 4.2.0 REQUIRED)
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
