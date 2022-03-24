@@ -77,9 +77,9 @@ class PhotoPublisher:
 
 if __name__ == '__main__':
     rospy.init_node('photo_publisher')
-    # rospy.sleep(15)
+    rospy.sleep(15)
     photo_publisher = PhotoPublisher(photo = False)
-    # rospy.sleep(10)
+    rospy.sleep(10)
     if photo_publisher.done is not None:
         rate = rospy.Rate(photo_publisher.rate)
         path = photo_publisher.data_path
