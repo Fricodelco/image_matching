@@ -250,7 +250,8 @@ class PositionFinder:
                                         (lat_zero, lon_zero), pixel_size, (yaw), (0,255,0))
                 # img = img[int(img.shape[0]*0.2):int(img.shape[0]*0.8), int(img.shape[1]*0.2):int(img.shape[1]*0.8)]
                 self.pub_pose_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))    
-                return True
+            else:
+                return False
         #send poses
         if self.first_cadr == False:
             g_c = GeodeticConvert()

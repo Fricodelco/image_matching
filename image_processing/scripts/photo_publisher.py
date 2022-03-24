@@ -58,7 +58,7 @@ class PhotoPublisher:
     def video_publisher(self):
         try:
             ret, frame = self.cap.read()
-            if self.iterator > self.rate/2:
+            if self.iterator > self.rate/3:
                 frame = frame[:,:,2]
                 self.pub_image.publish(self.bridge.cv2_to_imgmsg(frame, "8UC1"))
                 self.iterator = 0
