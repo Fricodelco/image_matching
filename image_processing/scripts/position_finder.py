@@ -81,7 +81,7 @@ class PositionFinder:
         self.sub_gps = rospy.Subscriber("gps", NavSatFix, self.gps_cb)
         if self.use_baro is True:
             self.sub_baro = rospy.Subscriber("baro", Float32, self.baro_cb)
-        self.sub_photo = rospy.Subscriber("photo",Image, self.photo_cb)
+        self.sub_photo = rospy.Subscriber("photo",Image, self.photo_cb, queue_size=1)
         self.bridge = CvBridge()
         if self.publish_tf_img is True:
             self.pub_image = rospy.Publisher('/find_transform', Image, queue_size=1)
