@@ -55,7 +55,7 @@ class image_processing():
                     self.main_points.append(point)
         else:
             self.rasterArray = img
-            self.rasterArray = self.rasterArray[:,:,2]
+            # self.rasterArray = self.rasterArray[:,:,2]
 
     def find_pixel_size(self):
         self.g_c.initialiseReference(self.main_points[0].lat, self.main_points[0].lon, 0)

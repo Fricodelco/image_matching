@@ -100,7 +100,7 @@ class PositionFinder:
 
     def photo_cb(self, data):
         if (self.use_baro is True and self.height_init is True) or self.use_baro is False:
-            image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+            image = self.bridge.imgmsg_to_cv2(data, "8UC1")
             cadr = image_processing(img = image)
             cadr.find_pixel_size_by_height(self.height, self.poi)
             #resize by pixel size
@@ -159,13 +159,18 @@ class PositionFinder:
                         if pose == True:
                             return True                    
         else:
+            # print("get roi")
             roi = self.matcher.roi_from_last_xy(self.main_map, float(self.x_meter), float(self.y_meter), cadr, self.search_scale_for_roi_by_detection, self.last_yaw)
             cadr_rescaled = copy.deepcopy(cadr)
             roi, cadr_rescaled = self.matcher.rescale_for_optimal_sift(roi, cadr_rescaled)
+            # print("rescaled")
             roi.kp, roi.dp = self.matcher.find_kp_dp(roi.img)        
+            # print("get keypoints")
             clahe = cv2.createCLAHE(clipLimit=30.0, tileGridSize=(8,8))
             cadr_rescaled.rasterArray = clahe.apply(cadr_rescaled.rasterArray)
+            # print("get clahe")
             self.pose_from_roi(roi, cadr_rescaled)
+            # print("get pose")
             if self.publish_roi_img is True:
                 self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(roi.img, "8UC1"))
         
