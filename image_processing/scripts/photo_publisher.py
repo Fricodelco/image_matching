@@ -56,12 +56,16 @@ class PhotoPublisher:
             self.pub_compressed_image.publish(self.bridge.cv2_to_compressed_imgmsg(image))
 
     def video_publisher(self):
-        ret, frame = self.cap.read()
-        if self.iterator > self.rate/2:
-            frame = frame[:,:,2]
-            self.pub_image.publish(self.bridge.cv2_to_imgmsg(frame, "8UC1"))
-            self.iterator = 0
-        self.iterator+=1
+        try:
+            ret, frame = self.cap.read()
+            if self.iterator > self.rate/2:
+                frame = frame[:,:,2]
+                self.pub_image.publish(self.bridge.cv2_to_imgmsg(frame, "8UC1"))
+                self.iterator = 0
+            self.iterator+=1
+            return True
+        except:
+            return False
 
     def load_params(self):
         home = os.getenv("HOME")
@@ -94,6 +98,9 @@ if __name__ == '__main__':
         i = 0
         time_old = time()
         while not rospy.is_shutdown():
-            photo_publisher.video_publisher()
+            answer = photo_publisher.video_publisher()
+            if answer == False:
+                break
             rate.sleep()
         thread.join()
+        print("VIDEO ENDED")

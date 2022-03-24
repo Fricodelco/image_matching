@@ -24,12 +24,13 @@ class  PhotoPublisher{
         Mat frame;
         Mat frame_gray;
         cap_ >> frame;
+        cv::extractChannel(frame, frame_gray, 2);
         if(counter > fps/target_fps){
             counter = 0;
             std_msgs::Header header; 
             header.stamp = ros::Time::now();
             sensor_msgs::Image img_msg;
-            bridge_ = cv_bridge::CvImage(header, sensor_msgs::image_encodings::BGR8, frame);
+            bridge_ = cv_bridge::CvImage(header, sensor_msgs::image_encodings::TYPE_8UC1, frame_gray);
             bridge_.toImageMsg(img_msg);
             pub_.publish(img_msg);
         }
@@ -49,10 +50,4 @@ int main (int argc, char **argv)
         nh.createTimer(ros::Duration(1/pb.fps),
                        std::bind(&PhotoPublisher::publish_cadr, pb));
     ros::spin();
-    // ros::Rate loop_rate(static_cast<int>(pb.fps));
-    // while(ros::ok()){
-    //     pb.publish_cadr();
-    //     ros::spinOnce();
-    //     loop_rate.sleep();
-    // }
 }

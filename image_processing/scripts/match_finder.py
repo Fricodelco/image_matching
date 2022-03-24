@@ -11,7 +11,6 @@ from decimal import Decimal
 import matplotlib.pyplot as plt
 from utils import resize_img, rotate_image, line_intersection, isConvex
 import math
-from pypopsift import popsift
 @dataclass
 class roi:
     img: np.ndarray
