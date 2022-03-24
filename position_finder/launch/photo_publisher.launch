@@ -1,4 +1,0 @@
-<launch>
-  <node pkg="position_finder" type="photo_publisher_node" name="photo_publisher"/>
-  <rosparam file="$(env HOME)/copa5/config/config.yaml" />
-</launch>
