@@ -102,12 +102,11 @@ class PositionFinder:
 
     def photo_cb(self, data):
         if (self.use_baro is True and self.height_init is True) or self.use_baro is False:
+            start_time = time()
             image = self.bridge.imgmsg_to_cv2(data, "8UC1")
             cadr = image_processing(img = image)
             cadr.find_pixel_size_by_height(self.height, self.poi)
             #resize by pixel size
-            start_time = time()
-            print("start_resize")
             scale, map_pixel_bigger = self.matcher.find_scale(self.map_pixel_size, cadr.pixel_size)
             if map_pixel_bigger is True:
                 cadr.rasterArray, cadr.pixel_size = self.matcher.resize_by_scale(
@@ -117,9 +116,9 @@ class PositionFinder:
                 self.main_map.rasterArray, self.main_map.pixel_size = self.matcher.resize_by_scale(
                                     self.main_map.rasterArray, self.main_map.pixel_size, scale)
                 self.map_pixel_size = self.main_map.pixel_size
-            print("end resize", time() - start_time)
             #find match
             self.find_pose(cadr)
+            print("cadr analize time: ", time() - start_time)
         
         
     def find_pose(self, cadr):
