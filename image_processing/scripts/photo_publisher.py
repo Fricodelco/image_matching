@@ -59,10 +59,6 @@ class PhotoPublisher:
             ret, frame = self.cap.read()
             if self.iterator > self.rate/3:
                 frame = frame[:,:,2]
-                width = int(frame.shape[1] * 0.5)
-                height = int(frame.shape[0] * 0.5)
-                dim = (width, height)  
-                frame = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA)
                 self.pub_image.publish(self.bridge.cv2_to_imgmsg(frame, "8UC1"))
                 self.iterator = 0
             self.iterator+=1
