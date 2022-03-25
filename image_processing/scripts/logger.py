@@ -84,7 +84,9 @@ class Logger:
         quat[2] = data.orientation.z
         quat[3] = data.orientation.w
         self.roll, self.pitch, self.yaw = tf.transformations.euler_from_quaternion(quat)
-
+        self.roll = (self.roll*180)/np.pi
+        self.pitch = (self.pitch*180)/np.pi
+        self.yaw = (self.yaw*180)/np.pi
 
     def save_data(self):
         myFile = open(self.data_path, 'w')
