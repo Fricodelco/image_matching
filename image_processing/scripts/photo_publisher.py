@@ -31,16 +31,16 @@ class PhotoPublisher:
             # self.cap = cv2.VideoCapture(data_path+'/05_03_2022/flight_2/C_18fps.mp4')
             file_exists = os.path.exists(self.data_path+'.mp4')
             if file_exists is True:
-                self.cap = cv2.VideoCapture(self.data_path+'.mp4')
+                self.cap = cv2.VideoCapture(self.data_path+'.mp4', cv2.CAP_FFMPEG)
             else:
                 file_exists = os.path.exists(self.data_path+'.MP4')
                 if file_exists is True:
-                    self.cap = cv2.VideoCapture(self.data_path+'.MP4')
+                    self.cap = cv2.VideoCapture(self.data_path+'.MP4', cv2.CAP_FFMPEG)
                 else:
                     print("NO VIDEO FILE")
                     self.done = None            
                     return None
-            
+            # self.cap.set(cv2.CAP_GSTREAMER)
             fps = int(self.cap.get(cv2.CAP_PROP_FPS))
             self.rate = fps
             self.iterator = 0
