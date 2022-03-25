@@ -56,6 +56,8 @@ class PositionFinder:
         self.east_filtered = np.zeros(5)
         self.low_pass_time = time()
         self.rois = []
+        self.roi_iterator = 100
+        self.roi_after_link = None
         self.first_rolling = True
         self.height_init = False
         #load params
@@ -162,19 +164,23 @@ class PositionFinder:
                             return True                    
         else:
             # print("get roi")
-            roi = self.matcher.roi_from_last_xy(self.main_map, float(self.x_meter), float(self.y_meter), cadr, self.search_scale_for_roi_by_detection, self.last_yaw)
             cadr_rescaled = copy.deepcopy(cadr)
-            roi, cadr_rescaled = self.matcher.rescale_for_optimal_sift(roi, cadr_rescaled)
-            # print("rescaled")
-            roi.kp, roi.dp = self.matcher.find_kp_dp(roi.img)        
+            if self.roi_iterator > 10:
+                self.roi_after_link = self.matcher.roi_from_last_xy(self.main_map, float(self.x_meter), float(self.y_meter), cadr, self.search_scale_for_roi_by_detection, self.last_yaw)
+                self.roi_iterator = 0
+                self.roi_after_link, cadr_rescaled = self.matcher.rescale_for_optimal_sift(self.roi_after_link, cadr_rescaled)
+                self.roi_after_link.kp, self.roi_after_link.dp = self.matcher.find_kp_dp(self.roi_after_link.img)        
+            else:
+                self.roi_iterator += 1
+                cadr_rescaled = self.matcher.rescale_cadr(cadr)
             # print("get keypoints")
             clahe = cv2.createCLAHE(clipLimit=30.0, tileGridSize=(8,8))
             cadr_rescaled.rasterArray = clahe.apply(cadr_rescaled.rasterArray)
             # print("get clahe")
-            self.pose_from_roi(roi, cadr_rescaled)
+            self.pose_from_roi(self.roi_after_link, cadr_rescaled)
             # print("get pose")
             if self.publish_roi_img is True:
-                self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(roi.img, "8UC1"))
+                self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(self.roi_after_link.img, "8UC1"))
         
             
 

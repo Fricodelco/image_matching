@@ -236,8 +236,9 @@ class match_finder():
             roll, pitch, yaw = self.get_angles_from_homography(M)
             x_center, y_center = line_intersection((dst[0][0], dst[2][0]), (dst[1][0], dst[3][0]))
             #draw
-            img2 = cv2.circle(img2, (int(x_center), int(y_center)), 10, 255, 5)
-            img2 = cv2.polylines(img2,[np.int32(dst)],True,255,3, cv2.LINE_AA)
+            # img3 = copy.deepcopy(img2)
+            # img2 = cv2.circle(img2, (int(x_center), int(y_center)), 10, 255, 5)
+            # img2 = cv2.polylines(img2,[np.int32(dst)],True,255,3, cv2.LINE_AA)
             return x_center, y_center, roll, pitch, yaw, M, img2
         else:
             return None, None, None, None, None, None, None
