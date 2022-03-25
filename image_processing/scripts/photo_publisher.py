@@ -31,16 +31,19 @@ class PhotoPublisher:
             # self.cap = cv2.VideoCapture(data_path+'/05_03_2022/flight_2/C_18fps.mp4')
             file_exists = os.path.exists(self.data_path+'.mp4')
             if file_exists is True:
-                self.cap = cv2.VideoCapture(self.data_path+'.mp4', cv2.CAP_FFMPEG)
+                # self.cap = cv2.VideoCapture(self.data_path+'.mp4', cv2.CAP_FFMPEG)
+                self.cap = cv2.VideoCapture('filesrc location=' + self.data_path+'.mp4'+' ! qtdemux ! queue ! h264parse ! omxh264dec ! nvvidconv ! video/x-raw,format=BGRx ! queue ! videoconvert ! queue ! video/x-raw, format=BGR ! appsink', cv2.CAP_GSTREAMER)
             else:
                 file_exists = os.path.exists(self.data_path+'.MP4')
                 if file_exists is True:
-                    self.cap = cv2.VideoCapture(self.data_path+'.MP4', cv2.CAP_FFMPEG)
+                    # self.cap = cv2.VideoCapture(self.data_path+'.MP4', cv2.CAP_FFMPEG)
+                    self.cap = cv2.VideoCapture('filesrc location=' + self.data_path+'.MP4'+' ! qtdemux ! queue ! h264parse ! omxh264dec ! nvvidconv ! video/x-raw,format=BGRx ! queue ! videoconvert ! queue ! video/x-raw, format=BGR ! appsink', cv2.CAP_GSTREAMER)
                 else:
                     print("NO VIDEO FILE")
                     self.done = None            
                     return None
             # self.cap.set(cv2.CAP_GSTREAMER)
+            # self.cap = cv2.VideoCapture('filesrc location=/home/jetson/copa5/video/001-acl-2222.mp4 ! qtdemux ! queue ! h264parse ! omxh264dec ! nvvidconv ! video/x-raw,format=BGRx ! queue ! videoconvert ! queue ! video/x-raw, format=BGR ! appsink', cv2.CAP_GSTREAMER)
             fps = int(self.cap.get(cv2.CAP_PROP_FPS))
             self.rate = fps
             self.iterator = 0
