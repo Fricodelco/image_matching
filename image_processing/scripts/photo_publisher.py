@@ -52,19 +52,22 @@ class PhotoPublisher:
         if self.iterator < len(self.photos_paths):
             image = cv2.imread(self.photos_paths[self.iterator])
             self.iterator+=1
-            self.pub_image.publish(self.bridge.cv2_to_imgmsg(image, "rgb"))
-            self.pub_compressed_image.publish(self.bridge.cv2_to_compressed_imgmsg(image))
+            # self.pub_image.publish(self.bridge.cv2_to_imgmsg(image, "rgb"))
 
     def video_publisher(self):
         try:
             ret, frame = self.cap.read()
             if self.iterator > self.rate/3:
                 frame = frame[:,:,2]
+                width = int(frame.shape[1] * 0.5)
+                height = int(frame.shape[0] * 0.5)
+                dim = (width, height)  
+                frame = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA)
                 self.pub_image.publish(self.bridge.cv2_to_imgmsg(frame, "8UC1"))
                 self.iterator = 0
             self.iterator+=1
             return True
-        except:
+        except Exception as e:
             return False
         
     def load_params(self):
