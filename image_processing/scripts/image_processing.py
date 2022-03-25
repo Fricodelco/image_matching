@@ -43,8 +43,8 @@ class image_processing():
             print("map loaded", time() - time_start)
             time_start = time()
             self.rasterArray = raster.ReadAsArray()
-            self.rasterArray = np.dstack((self.rasterArray[0],self.rasterArray[1],self.rasterArray[2]))
-            self.rasterArray = self.rasterArray[:,:,0]
+            # self.rasterArray = np.dstack((self.rasterArray[0],self.rasterArray[1],self.rasterArray[2]))
+            self.rasterArray = self.rasterArray[0]
             print("to gray complete", time() - time_start)
             time_start = time()
             with open(data_path+'/'+filename+'.@@@') as f:
