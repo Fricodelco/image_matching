@@ -11,6 +11,7 @@ from decimal import Decimal
 import matplotlib.pyplot as plt
 from utils import resize_img, rotate_image, line_intersection, isConvex
 import math
+from time import time
 @dataclass
 class roi:
     img: np.ndarray
@@ -209,7 +210,7 @@ class match_finder():
         #                             upright = False)
         
         keypoints_1, descriptors_1 = surf.detectAndCompute(img, None)
-        return keypoints_1, descriptors_1
+        return keypoints_1, descriptors_1, img
 
     def find_good_matches(self, descriptors_1, descriptors_2):
         bf = cv2.BFMatcher()

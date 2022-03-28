@@ -93,7 +93,11 @@ class PositionFinder:
             self.pub_keypoints_image = rospy.Publisher('/keypoints_matches', Image, queue_size=1)
         if self.publish_calculated_pose_img is True:
             self.pub_pose_image = rospy.Publisher('/calculated_pose', Image, queue_size=1)
-            self.sub_filter_gps_publisher = rospy.Subscriber('/filtered_gps', NavSatFix, self.filter_cb)        
+            self.sub_filter_gps_publisher = rospy.Subscriber('/filtered_gps', NavSatFix, self.filter_cb)
+            scale = 600/self.main_map.rasterArray.shape[0]
+            self.map_resized = resize_img(self.main_map.rasterArray, scale)
+            self.map_resized_pixel_size = self.main_map.pixel_size/Decimal(scale)
+            
         if self.publish_between_img is True:
             self.pub_between_image = rospy.Publisher('/between_image', Image, queue_size=1)
         self.pub_latlon = rospy.Publisher('/coordinates_by_img', NavSatFix, queue_size=1)
@@ -135,14 +139,14 @@ class PositionFinder:
                         return
                     self.roi_iterator = 0
                     self.roi_after_link, cadr_rescaled = self.matcher.rescale_for_optimal_sift(self.roi_after_link, cadr_rescaled)
-                    self.roi_after_link.kp, self.roi_after_link.dp = self.matcher.find_kp_dp(self.roi_after_link.img)        
+                    self.roi_after_link.kp, self.roi_after_link.dp, self.roi_after_link.img = self.matcher.find_kp_dp(self.roi_after_link.img)        
                 else:
                     self.roi_iterator += 1
                     cadr_rescaled = self.matcher.rescale_cadr(cadr)
                 
                 if self.roi_after_link is not False:
                     self.roi_after_link, cadr_rescaled = self.matcher.rescale_for_optimal_sift(self.roi_after_link, cadr_rescaled)
-                    self.roi_after_link.kp, self.roi_after_link.dp = self.matcher.find_kp_dp(self.roi_after_link.img)
+                    # self.roi_after_link.kp, self.roi_after_link.dp, self.roi_after_link.img = self.matcher.find_kp_dp(self.roi_after_link.img)
                     clahe = cv2.createCLAHE(clipLimit=30.0, tileGridSize=(8,8))
                     cadr_rescaled.rasterArray = clahe.apply(cadr_rescaled.rasterArray)  
                     self.pose_from_roi(self.roi_after_link, cadr_rescaled)
@@ -157,7 +161,7 @@ class PositionFinder:
                         roi = self.matcher.create_roi_from_border(self.main_map, border)
                         cadr_rescaled = copy.deepcopy(cadr)
                         roi, cadr_rescaled = self.matcher.rescale_for_optimal_sift(roi, cadr_rescaled)
-                        roi.kp, roi.dp = self.matcher.find_kp_dp(roi.img)        
+                        roi.kp, roi.dp, roi.img = self.matcher.find_kp_dp(roi.img)        
                         self.rois.append(roi)
                         if self.publish_roi_img is True:
                             self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(roi.img, "8UC1"))
@@ -182,7 +186,7 @@ class PositionFinder:
                 self.roi_after_link = self.matcher.roi_from_last_xy(self.main_map, float(self.x_meter), float(self.y_meter), cadr, self.search_scale_for_roi_by_detection, self.last_yaw)
                 self.roi_iterator = 0
                 self.roi_after_link, cadr_rescaled = self.matcher.rescale_for_optimal_sift(self.roi_after_link, cadr_rescaled)
-                self.roi_after_link.kp, self.roi_after_link.dp = self.matcher.find_kp_dp(self.roi_after_link.img)        
+                self.roi_after_link.kp, self.roi_after_link.dp, self.roi_after_link.img = self.matcher.find_kp_dp(self.roi_after_link.img)        
             else:
                 self.roi_iterator += 1
                 cadr_rescaled = self.matcher.rescale_cadr(cadr)
@@ -198,6 +202,7 @@ class PositionFinder:
             
 
     def pose_from_roi(self, roi, cadr):
+        start_time = time()
         percent_of_good, kp_1, kp_2, good, img_for_pub, cadr_rescaled, descriptors_1, descriptors_2 = self.find_matches(roi, cadr)
         #compare cadrs
         self.between_iter+=1
@@ -226,23 +231,24 @@ class PositionFinder:
         else:
             x_center = None
         #show coordinates
-        img = resize_img(self.main_map.rasterArray, 0.2)
-        pixel_size = self.main_map.pixel_size/Decimal(0.2)
-        img = draw_circle_on_map_by_coord_and_angles(img,
-                                    (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
-                                    (self.lat_gps, self.lon_gps), pixel_size, (self.imu_yaw), (0,0,255))
-        g_c = GeodeticConvert()
-        g_c.initialiseReference(self.main_map.main_points[0].lat, self.main_map.main_points[0].lon, 0)
-        lat_mezh, lon_mezh, _ = g_c.ned2Geodetic(north=float(-self.y_meter), east=float(self.x_meter), down=0)
+        if self.publish_calculated_pose_img is True:
+            img = draw_circle_on_map_by_coord_and_angles(self.map_resized,
+                                        (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
+                                        (self.lat_gps, self.lon_gps), self.map_resized_pixel_size, (self.imu_yaw), (0,0,255))
+            g_c = GeodeticConvert()
+            g_c.initialiseReference(self.main_map.main_points[0].lat, self.main_map.main_points[0].lon, 0)
+            lat_mezh, lon_mezh, _ = g_c.ned2Geodetic(north=float(-self.y_meter), east=float(self.x_meter), down=0)
 
-        img = draw_circle_on_map_by_coord_and_angles(img,
-                                    (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
-                                    (lat_mezh, lon_mezh), pixel_size, (self.last_yaw), (255,0,255))
-       
-        img = draw_circle_on_map_by_coord_and_angles(img,
-                                    (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
-                                    (self.filtered_lat, self.filtered_lon), pixel_size, (self.last_yaw), (255,255,255))
+            img = draw_circle_on_map_by_coord_and_angles(self.map_resized,
+                                        (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
+                                        (lat_mezh, lon_mezh), self.map_resized_pixel_size, (self.last_yaw), (255,0,255))
+        
+            img = draw_circle_on_map_by_coord_and_angles(self.map_resized,
+                                        (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
+                                        (self.filtered_lat, self.filtered_lon), self.map_resized_pixel_size, (self.last_yaw), (255,255,255))
+            
         pose_from_privyazka = False
+        
         if x_center is not None and speed_limit is False:
             if self.publish_tf_img is True:
                 self.pub_image.publish(self.bridge.cv2_to_imgmsg(img_tf, "8UC1"))
@@ -263,15 +269,16 @@ class PositionFinder:
                 pose_from_privyazka = True
                 self.x_meter = float(x_inc)
                 self.y_meter = float(y_inc)
-                img = draw_circle_on_map_by_coord_and_angles(img,
-                                        (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
-                                        (lat, lon), pixel_size, (yaw), (255,0,0))
-            
-                img = draw_circle_on_map_by_coord_and_angles(img,
-                                        (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
-                                        (lat_zero, lon_zero), pixel_size, (yaw), (0,255,0))
-                # img = img[int(img.shape[0]*0.2):int(img.shape[0]*0.8), int(img.shape[1]*0.2):int(img.shape[1]*0.8)]
-                self.pub_pose_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))    
+                if self.publish_calculated_pose_img is True:
+                    img = draw_circle_on_map_by_coord_and_angles(self.map_resized,
+                                            (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
+                                            (lat, lon), self.map_resized_pixel_size, (yaw), (255,0,0))
+                
+                    img = draw_circle_on_map_by_coord_and_angles(self.map_resized,
+                                            (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
+                                            (lat_zero, lon_zero), self.map_resized_pixel_size, (yaw), (0,255,0))
+                    # img = img[int(img.shape[0]*0.2):int(img.shape[0]*0.8), int(img.shape[1]*0.2):int(img.shape[1]*0.8)]
+                    self.pub_pose_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))    
             else:
                 return False
         #send poses

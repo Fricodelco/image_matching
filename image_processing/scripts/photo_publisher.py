@@ -33,11 +33,16 @@ class PhotoPublisher:
             if file_exists is True:
                 # self.cap = cv2.VideoCapture(self.data_path+'.mp4', cv2.CAP_FFMPEG)
                 self.cap = cv2.VideoCapture('filesrc location=' + self.data_path+'.mp4'+' ! qtdemux ! queue ! h264parse ! omxh264dec ! nvvidconv ! video/x-raw,format=BGRx ! queue ! videoconvert ! queue ! video/x-raw, format=BGR ! appsink', cv2.CAP_GSTREAMER)
+                fps = int(self.cap.get(cv2.CAP_PROP_FPS))
+                if fps == 0:
+                    self.cap = cv2.VideoCapture(self.data_path+'.mp4', cv2.CAP_FFMPEG)
             else:
                 file_exists = os.path.exists(self.data_path+'.MP4')
                 if file_exists is True:
-                    # self.cap = cv2.VideoCapture(self.data_path+'.MP4', cv2.CAP_FFMPEG)
                     self.cap = cv2.VideoCapture('filesrc location=' + self.data_path+'.MP4'+' ! qtdemux ! queue ! h264parse ! omxh264dec ! nvvidconv ! video/x-raw,format=BGRx ! queue ! videoconvert ! queue ! video/x-raw, format=BGR ! appsink', cv2.CAP_GSTREAMER)
+                    fps = int(self.cap.get(cv2.CAP_PROP_FPS))
+                    if fps == 0:
+                        self.cap = cv2.VideoCapture(self.data_path+'.MP4', cv2.CAP_FFMPEG)
                 else:
                     print("NO VIDEO FILE")
                     self.done = None            
@@ -60,7 +65,7 @@ class PhotoPublisher:
     def video_publisher(self):
         try:
             ret, frame = self.cap.read()
-            if self.iterator > self.rate/3:
+            if self.iterator > self.rate/5:
                 frame = frame[:,:,2]
                 self.pub_image.publish(self.bridge.cv2_to_imgmsg(frame, "8UC1"))
                 self.iterator = 0
