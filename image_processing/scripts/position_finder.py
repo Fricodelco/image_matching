@@ -232,18 +232,19 @@ class PositionFinder:
             x_center = None
         #show coordinates
         if self.publish_calculated_pose_img is True:
-            img = draw_circle_on_map_by_coord_and_angles(self.map_resized,
+            img = copy.deepcopy(self.map_resized)
+            img = draw_circle_on_map_by_coord_and_angles(img,
                                         (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
                                         (self.lat_gps, self.lon_gps), self.map_resized_pixel_size, (self.imu_yaw), (0,0,255))
             g_c = GeodeticConvert()
             g_c.initialiseReference(self.main_map.main_points[0].lat, self.main_map.main_points[0].lon, 0)
             lat_mezh, lon_mezh, _ = g_c.ned2Geodetic(north=float(-self.y_meter), east=float(self.x_meter), down=0)
 
-            img = draw_circle_on_map_by_coord_and_angles(self.map_resized,
+            img = draw_circle_on_map_by_coord_and_angles(img,
                                         (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
                                         (lat_mezh, lon_mezh), self.map_resized_pixel_size, (self.last_yaw), (255,0,255))
         
-            img = draw_circle_on_map_by_coord_and_angles(self.map_resized,
+            img = draw_circle_on_map_by_coord_and_angles(img,
                                         (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
                                         (self.filtered_lat, self.filtered_lon), self.map_resized_pixel_size, (self.last_yaw), (255,255,255))
             
@@ -270,11 +271,11 @@ class PositionFinder:
                 self.x_meter = float(x_inc)
                 self.y_meter = float(y_inc)
                 if self.publish_calculated_pose_img is True:
-                    img = draw_circle_on_map_by_coord_and_angles(self.map_resized,
+                    img = draw_circle_on_map_by_coord_and_angles(img,
                                             (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
                                             (lat, lon), self.map_resized_pixel_size, (yaw), (255,0,0))
                 
-                    img = draw_circle_on_map_by_coord_and_angles(self.map_resized,
+                    img = draw_circle_on_map_by_coord_and_angles(img,
                                             (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
                                             (lat_zero, lon_zero), self.map_resized_pixel_size, (yaw), (0,255,0))
                     # img = img[int(img.shape[0]*0.2):int(img.shape[0]*0.8), int(img.shape[1]*0.2):int(img.shape[1]*0.8)]

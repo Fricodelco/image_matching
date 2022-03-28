@@ -6,7 +6,8 @@ import statistics
 from math import atan2, sqrt, sin, cos
 import numpy as np
 from sklearn.linear_model import LinearRegression
-
+import os
+import yaml
 from sensor_msgs.msg import NavSatFix
 from nav_msgs.msg import Odometry
 
@@ -194,7 +195,8 @@ class GpsLowPassFilter():
 class BaseRegressionFilter():
     def __init__(self) -> None:
         self.statr_time = None
-        self.predict_front = 15
+        params = self.load_params()
+        self.predict_front = params["filter_predict_front"]
 
         self.time_array = []
         self.lat_array = []
@@ -202,6 +204,14 @@ class BaseRegressionFilter():
 
         self.filter_gps_publisher = rospy.Publisher('/filtered_gps', NavSatFix, queue_size=10)
         rospy.Subscriber('/coordinates_by_img', NavSatFix, self.updateMeasurementPosition)
+
+    def load_params(self):
+        home = os.getenv("HOME")
+        data_path = home+'/copa5/config/config.yaml'
+        with open(data_path) as file:
+            params = yaml.full_load(file)
+        return params
+    
 
     def updateMeasurementPosition(self, msg: NavSatFix):
         if len(self.time_array) == 0:
