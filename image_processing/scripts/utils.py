@@ -58,12 +58,12 @@ def draw_circle_on_map_by_coord_and_angles(img, coord, circle_coord, pixel_size,
     
     pixel_x = int(x/float(pixel_size))
     pixel_y = int(-y/float(pixel_size))
-    x2 = int(pixel_x + 50 * np.cos(yaw))
+    x2 = int(pixel_x + 20 * np.cos(yaw))
     # x2 = pixel_x + 50
-    y2 = int(pixel_y - 50 * np.sin(yaw))
+    y2 = int(pixel_y - 20 * np.sin(yaw))
     # y2 = pixel_y
-    img = cv2.line(img, (pixel_x, pixel_y), (x2, y2), color, 5)
-    img = cv2.circle(img, (pixel_x, pixel_y), 10, color, 2)
+    img = cv2.line(img, (pixel_x, pixel_y), (x2, y2), color, 2)
+    img = cv2.circle(img, (pixel_x, pixel_y), 4, color, 2)
     return img
 
 def CrossProduct(A):

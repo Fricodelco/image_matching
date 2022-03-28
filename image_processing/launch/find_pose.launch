@@ -1,6 +1,7 @@
 <launch>
-  <node pkg="image_processing" type="position_finder.py" name="position_finder"/>
-  <node pkg="csv_data_pkg" type="filter_gps.py" name="filter_position"/>
-  <node pkg="image_processing" type="logger.py" name="logger"/>
-  <node pkg="image_processing" type="photo_publisher.py" name="photo_publisher"/>
+  <node pkg="image_processing" type="position_finder.py" name="position_finder" output="screen"/>
+  <node pkg="image_processing" type="logger.py" name="logger" output="screen"/>
+  <node pkg="image_processing" type="photo_publisher.py" name="photo_publisher" output="screen"/>
+  <node pkg="csv_data_pkg" type="filter_gps.py" name="gps_filter" output="screen"/>
+  <rosparam file="$(env HOME)/copa5/config/config.yaml" />
 </launch>

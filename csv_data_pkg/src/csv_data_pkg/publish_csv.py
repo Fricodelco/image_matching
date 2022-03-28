@@ -10,6 +10,7 @@ from std_msgs.msg import Float32, String
 
 class CsvRosHendler():
     def __init__(self, csv_file_path: str) -> None:
+        #ros
         self.csv_data = []
         self.time_stamps = []
         self.csv_file_path = csv_file_path
@@ -41,6 +42,7 @@ class CsvRosHendler():
             self.publish_gps_imu_data(i)
             if rospy.is_shutdown():
                 break
+        print("CSV END")
 
     def publish_gps_imu_data(self, index: int)->None:
         imu_msg = Imu()

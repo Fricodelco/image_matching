@@ -11,7 +11,7 @@ from match_finder import match_finder
 from time import time
 from sensor_msgs.msg import Image, CompressedImage, NavSatFix, Imu 
 from nav_msgs.msg import Odometry
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 from cv_bridge import CvBridge
 import copy
 from utils import resize_img, draw_circle_on_map_by_coord_and_angles
@@ -34,6 +34,8 @@ class Logger:
         self.sub_latlon = rospy.Subscriber('/filtered_gps', NavSatFix, self.latlon_cb, queue_size=1)
         # self.sub_estimated_odom = rospy.Subscriber('/odom_by_img', Odometry, self.odom_cb, queue_size=1)
         self.sub_imu = rospy.Subscriber('/imu', Imu, self.imu_cb, queue_size=1)
+        self.pose_from_privyazka = False
+        self.sub_pose_from_privyazka = rospy.Subscriber('/pose_from_privyazka', Bool, self.pose_from_cb, queue_size=1)
         if self.realtime is False:
             self.sub_time = rospy.Subscriber('/csv_time', String, self.csv_time_cb, queue_size=1)
             self.time_csv = None
@@ -45,6 +47,9 @@ class Logger:
         self.time = time()
         self.first_msg = True
         self.my_date = None
+
+    def pose_from_cb(self, data):
+        self.pose_from_privyazka = data.data
 
     def latlon_cb(self, data):
         if self.first_msg is True:
@@ -61,6 +66,10 @@ class Logger:
                 delta = delta[:-4]
             else:
                 delta = self.time_csv
+            if self.pose_from_privyazka is True:
+                nsat = 1
+            else:
+                nsat = 2
             row = {"time":str(delta),
                 "lat":float('{:.6f}'.format(lat)),
                 "lon":float('{:.6f}'.format(lon)),
@@ -68,7 +77,7 @@ class Logger:
                 "roll":float('{:.3f}'.format(self.roll)),
                 "pitch":float('{:.3f}'.format(self.pitch)), 
                 "head":float('{:.3f}'.format(self.yaw)),
-                "ub":0, "nsat":0}
+                "ub":0, "nsat":str(nsat)}
             self.rows.append(row)
             
 
@@ -84,7 +93,9 @@ class Logger:
         quat[2] = data.orientation.z
         quat[3] = data.orientation.w
         self.roll, self.pitch, self.yaw = tf.transformations.euler_from_quaternion(quat)
-
+        self.roll = (self.roll*180)/np.pi
+        self.pitch = (self.pitch*180)/np.pi
+        self.yaw = (self.yaw*180)/np.pi
 
     def save_data(self):
         myFile = open(self.data_path, 'w')

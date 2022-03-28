@@ -11,6 +11,7 @@ from decimal import Decimal
 import matplotlib.pyplot as plt
 from utils import resize_img, rotate_image, line_intersection, isConvex
 import math
+from time import time
 @dataclass
 class roi:
     img: np.ndarray
@@ -175,6 +176,13 @@ class match_finder():
             contrastThreshold = self.contrastThreshold,
             edgeThreshold = self.edgeThreshold,
             sigma = self.sigma)
+        # surf = cv2.xfeatures2d.SURF_create(hessianThreshold = 300,
+        #                             nOctaves = 20,
+        #                             nOctaveLayers = 5,
+        #                             extended = True,
+        #                             upright = False)
+        
+
         keypoints_1, descriptors_1 = surf.detectAndCompute(img1,None)
         # keypoints_2, descriptors_2 = surf.detectAndCompute(img2,None)
         bf = cv2.BFMatcher()
@@ -195,8 +203,14 @@ class match_finder():
             contrastThreshold = self.contrastThreshold,
             edgeThreshold = self.edgeThreshold,
             sigma = self.sigma)
+        # surf = cv2.xfeatures2d.SURF_create(hessianThreshold = 300,
+        #                             nOctaves = 20,
+        #                             nOctaveLayers = 5,
+        #                             extended = True,
+        #                             upright = False)
+        
         keypoints_1, descriptors_1 = surf.detectAndCompute(img, None)
-        return keypoints_1, descriptors_1
+        return keypoints_1, descriptors_1, img
 
     def find_good_matches(self, descriptors_1, descriptors_2):
         bf = cv2.BFMatcher()
@@ -223,8 +237,9 @@ class match_finder():
             roll, pitch, yaw = self.get_angles_from_homography(M)
             x_center, y_center = line_intersection((dst[0][0], dst[2][0]), (dst[1][0], dst[3][0]))
             #draw
-            img2 = cv2.circle(img2, (int(x_center), int(y_center)), 10, 255, 5)
-            img2 = cv2.polylines(img2,[np.int32(dst)],True,255,3, cv2.LINE_AA)
+            # img3 = copy.deepcopy(img2)
+            # img2 = cv2.circle(img2, (int(x_center), int(y_center)), 10, 255, 5)
+            # img2 = cv2.polylines(img2,[np.int32(dst)],True,255,3, cv2.LINE_AA)
             return x_center, y_center, roll, pitch, yaw, M, img2
         else:
             return None, None, None, None, None, None, None

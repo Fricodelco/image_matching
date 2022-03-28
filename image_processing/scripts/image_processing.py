@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from geodetic_conv import GeodeticConvert
 from decimal import Decimal
 import os
+from time import time
 
 @dataclass
 class img_point:
@@ -25,10 +26,12 @@ class image_processing():
         self.g_c = GeodeticConvert()
         self.rasterArray = None
         self.pixel_size = 0
+        time_start = time()
         if filename is not None:
             home = os.getenv("HOME")
             data_path = home+'/copa5/map'
             file_exists = os.path.exists(data_path+'/'+filename+'.tif')
+            print("start job")
             try:
                 if file_exists is True:
                     raster = gdal.Open(data_path+'/'+filename+'.tif')
@@ -37,9 +40,13 @@ class image_processing():
             except:
                 print("NO MAP FILE")
                 return None
+            print("map loaded", time() - time_start)
+            time_start = time()
             self.rasterArray = raster.ReadAsArray()
-            self.rasterArray = np.dstack((self.rasterArray[0],self.rasterArray[1],self.rasterArray[2]))
-            self.rasterArray = self.rasterArray[:,:,0]
+            # self.rasterArray = np.dstack((self.rasterArray[0],self.rasterArray[1],self.rasterArray[2]))
+            self.rasterArray = self.rasterArray[0]
+            print("to gray complete", time() - time_start)
+            time_start = time()
             with open(data_path+'/'+filename+'.@@@') as f:
                 lines = f.readlines()
                 for i in range(2, len(lines)):
@@ -55,7 +62,7 @@ class image_processing():
                     self.main_points.append(point)
         else:
             self.rasterArray = img
-            self.rasterArray = self.rasterArray[:,:,2]
+            # self.rasterArray = self.rasterArray[:,:,2]
 
     def find_pixel_size(self):
         self.g_c.initialiseReference(self.main_points[0].lat, self.main_points[0].lon, 0)

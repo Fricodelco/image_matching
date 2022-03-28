@@ -11,7 +11,7 @@ from match_finder import match_finder
 from time import time
 from sensor_msgs.msg import Image, Imu, CompressedImage, NavSatFix
 from nav_msgs.msg import Odometry
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32, Bool
 from cv_bridge import CvBridge
 import copy
 from utils import resize_img, draw_circle_on_map_by_coord_and_angles
@@ -56,6 +56,8 @@ class PositionFinder:
         self.east_filtered = np.zeros(5)
         self.low_pass_time = time()
         self.rois = []
+        self.roi_iterator = 100
+        self.roi_after_link = None
         self.first_rolling = True
         self.height_init = False
         #load params
@@ -81,7 +83,7 @@ class PositionFinder:
         self.sub_gps = rospy.Subscriber("gps", NavSatFix, self.gps_cb)
         if self.use_baro is True:
             self.sub_baro = rospy.Subscriber("baro", Float32, self.baro_cb)
-        self.sub_photo = rospy.Subscriber("photo",Image, self.photo_cb)
+        self.sub_photo = rospy.Subscriber("photo",Image, self.photo_cb, queue_size=1)
         self.bridge = CvBridge()
         if self.publish_tf_img is True:
             self.pub_image = rospy.Publisher('/find_transform', Image, queue_size=1)
@@ -91,16 +93,22 @@ class PositionFinder:
             self.pub_keypoints_image = rospy.Publisher('/keypoints_matches', Image, queue_size=1)
         if self.publish_calculated_pose_img is True:
             self.pub_pose_image = rospy.Publisher('/calculated_pose', Image, queue_size=1)
-            self.sub_filter_gps_publisher = rospy.Subscriber('/filtered_gps', NavSatFix, self.filter_cb)        
+            self.sub_filter_gps_publisher = rospy.Subscriber('/filtered_gps', NavSatFix, self.filter_cb)
+            scale = 600/self.main_map.rasterArray.shape[0]
+            self.map_resized = resize_img(self.main_map.rasterArray, scale)
+            self.map_resized_pixel_size = self.main_map.pixel_size/Decimal(scale)
+            
         if self.publish_between_img is True:
             self.pub_between_image = rospy.Publisher('/between_image', Image, queue_size=1)
         self.pub_latlon = rospy.Publisher('/coordinates_by_img', NavSatFix, queue_size=1)
+        self.pub_pose_from = rospy.Publisher('/pose_from_privyazka', Bool, queue_size=1)
         self.pub_estimated_odom = rospy.Publisher('/odom_by_img', Odometry, queue_size=1)
         print("Position Finder ready")
 
     def photo_cb(self, data):
         if (self.use_baro is True and self.height_init is True) or self.use_baro is False:
-            image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+            start_time = time()
+            image = self.bridge.imgmsg_to_cv2(data, "8UC1")
             cadr = image_processing(img = image)
             cadr.find_pixel_size_by_height(self.height, self.poi)
             #resize by pixel size
@@ -115,6 +123,7 @@ class PositionFinder:
                 self.map_pixel_size = self.main_map.pixel_size
             #find match
             self.find_pose(cadr)
+            print("cadr analize time: ", time() - start_time)
         
         
     def find_pose(self, cadr):
@@ -122,16 +131,27 @@ class PositionFinder:
         if self.first_cadr is True:
             # roi = self.matcher.roi_full_map(self.main_map)
             if self.use_gps == True:
-                roi = self.matcher.find_map_roi_by_coordinates(self.main_map, cadr, self.lat_gps, self.lon_gps, self.search_scale_for_roi_by_gps)
-                if roi is not False:
-                    cadr_rescaled = copy.deepcopy(cadr)
-                    roi, cadr_rescaled = self.matcher.rescale_for_optimal_sift(roi, cadr_rescaled)
-                    roi.kp, roi.dp = self.matcher.find_kp_dp(roi.img)
+                # print(self.lat_gps, self.lon_gps)
+                cadr_rescaled = copy.deepcopy(cadr)
+                if self.roi_iterator > 10:
+                    self.roi_after_link = self.matcher.find_map_roi_by_coordinates(self.main_map, cadr, self.lat_gps, self.lon_gps, self.search_scale_for_roi_by_gps)
+                    if self.roi_after_link is False:
+                        return
+                    self.roi_iterator = 0
+                    self.roi_after_link, cadr_rescaled = self.matcher.rescale_for_optimal_sift(self.roi_after_link, cadr_rescaled)
+                    self.roi_after_link.kp, self.roi_after_link.dp, self.roi_after_link.img = self.matcher.find_kp_dp(self.roi_after_link.img)        
+                else:
+                    self.roi_iterator += 1
+                    cadr_rescaled = self.matcher.rescale_cadr(cadr)
+                
+                if self.roi_after_link is not False:
+                    self.roi_after_link, cadr_rescaled = self.matcher.rescale_for_optimal_sift(self.roi_after_link, cadr_rescaled)
+                    # self.roi_after_link.kp, self.roi_after_link.dp, self.roi_after_link.img = self.matcher.find_kp_dp(self.roi_after_link.img)
                     clahe = cv2.createCLAHE(clipLimit=30.0, tileGridSize=(8,8))
                     cadr_rescaled.rasterArray = clahe.apply(cadr_rescaled.rasterArray)  
-                    self.pose_from_roi(roi, cadr_rescaled)
+                    self.pose_from_roi(self.roi_after_link, cadr_rescaled)
                     if self.publish_roi_img is True:
-                        self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(roi.img, "8UC1"))
+                        self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(self.roi_after_link.img, "8UC1"))
             else:
                 if self.first_rolling == True:
                     rolling_window_size_x = cadr.rasterArray.shape[1]*self.search_scale_for_roi_by_rolling_window
@@ -141,7 +161,7 @@ class PositionFinder:
                         roi = self.matcher.create_roi_from_border(self.main_map, border)
                         cadr_rescaled = copy.deepcopy(cadr)
                         roi, cadr_rescaled = self.matcher.rescale_for_optimal_sift(roi, cadr_rescaled)
-                        roi.kp, roi.dp = self.matcher.find_kp_dp(roi.img)        
+                        roi.kp, roi.dp, roi.img = self.matcher.find_kp_dp(roi.img)        
                         self.rois.append(roi)
                         if self.publish_roi_img is True:
                             self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(roi.img, "8UC1"))
@@ -153,25 +173,36 @@ class PositionFinder:
                     cadr_rescaled.rasterArray = clahe.apply(cadr_rescaled.rasterArray)
                     for roi in self.rois:
                         # print(cadr_rescaled.rasterArray.shape)
-                        pose = self.pose_from_roi(roi, cadr_rescaled)
+                        cadr_rescaled_copy = copy.deepcopy(cadr_rescaled)
+                        pose = self.pose_from_roi(roi, cadr_rescaled_copy)
                         if self.publish_roi_img is True:
                             self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(roi.img, "8UC1"))
                         if pose == True:
                             return True                    
         else:
-            roi = self.matcher.roi_from_last_xy(self.main_map, float(self.x_meter), float(self.y_meter), cadr, self.search_scale_for_roi_by_detection, self.last_yaw)
+            # print("get roi")
             cadr_rescaled = copy.deepcopy(cadr)
-            roi, cadr_rescaled = self.matcher.rescale_for_optimal_sift(roi, cadr_rescaled)
-            roi.kp, roi.dp = self.matcher.find_kp_dp(roi.img)        
+            if self.roi_iterator > 10:
+                self.roi_after_link = self.matcher.roi_from_last_xy(self.main_map, float(self.x_meter), float(self.y_meter), cadr, self.search_scale_for_roi_by_detection, self.last_yaw)
+                self.roi_iterator = 0
+                self.roi_after_link, cadr_rescaled = self.matcher.rescale_for_optimal_sift(self.roi_after_link, cadr_rescaled)
+                self.roi_after_link.kp, self.roi_after_link.dp, self.roi_after_link.img = self.matcher.find_kp_dp(self.roi_after_link.img)        
+            else:
+                self.roi_iterator += 1
+                cadr_rescaled = self.matcher.rescale_cadr(cadr)
+            # print("get keypoints")
             clahe = cv2.createCLAHE(clipLimit=30.0, tileGridSize=(8,8))
             cadr_rescaled.rasterArray = clahe.apply(cadr_rescaled.rasterArray)
-            self.pose_from_roi(roi, cadr_rescaled)
+            # print("get clahe")
+            self.pose_from_roi(self.roi_after_link, cadr_rescaled)
+            # print("get pose")
             if self.publish_roi_img is True:
-                self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(roi.img, "8UC1"))
+                self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(self.roi_after_link.img, "8UC1"))
         
             
 
     def pose_from_roi(self, roi, cadr):
+        start_time = time()
         percent_of_good, kp_1, kp_2, good, img_for_pub, cadr_rescaled, descriptors_1, descriptors_2 = self.find_matches(roi, cadr)
         #compare cadrs
         self.between_iter+=1
@@ -200,22 +231,24 @@ class PositionFinder:
         else:
             x_center = None
         #show coordinates
-        img = resize_img(self.main_map.rasterArray, 0.2)
-        pixel_size = self.main_map.pixel_size/Decimal(0.2)
-        img = draw_circle_on_map_by_coord_and_angles(img,
-                                    (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
-                                    (self.lat_gps, self.lon_gps), pixel_size, (self.imu_yaw), (0,0,255))
-        g_c = GeodeticConvert()
-        g_c.initialiseReference(self.main_map.main_points[0].lat, self.main_map.main_points[0].lon, 0)
-        lat_mezh, lon_mezh, _ = g_c.ned2Geodetic(north=float(-self.y_meter), east=float(self.x_meter), down=0)
+        if self.publish_calculated_pose_img is True:
+            img = copy.deepcopy(self.map_resized)
+            img = draw_circle_on_map_by_coord_and_angles(img,
+                                        (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
+                                        (self.lat_gps, self.lon_gps), self.map_resized_pixel_size, (self.imu_yaw), (0,0,255))
+            g_c = GeodeticConvert()
+            g_c.initialiseReference(self.main_map.main_points[0].lat, self.main_map.main_points[0].lon, 0)
+            lat_mezh, lon_mezh, _ = g_c.ned2Geodetic(north=float(-self.y_meter), east=float(self.x_meter), down=0)
 
-        img = draw_circle_on_map_by_coord_and_angles(img,
-                                    (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
-                                    (lat_mezh, lon_mezh), pixel_size, (self.last_yaw), (255,0,255))
-       
-        img = draw_circle_on_map_by_coord_and_angles(img,
-                                    (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
-                                    (self.filtered_lat, self.filtered_lon), pixel_size, (self.last_yaw), (255,255,255))
+            img = draw_circle_on_map_by_coord_and_angles(img,
+                                        (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
+                                        (lat_mezh, lon_mezh), self.map_resized_pixel_size, (self.last_yaw), (255,0,255))
+        
+            img = draw_circle_on_map_by_coord_and_angles(img,
+                                        (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
+                                        (self.filtered_lat, self.filtered_lon), self.map_resized_pixel_size, (self.last_yaw), (255,255,255))
+            
+        pose_from_privyazka = False
         
         if x_center is not None and speed_limit is False:
             if self.publish_tf_img is True:
@@ -234,25 +267,28 @@ class PositionFinder:
                 self.y_meter = float(y_inc)
             #low pass check for coordinates
             if self.low_pass_pose(float(x_inc), float(y_inc)) is True:
+                pose_from_privyazka = True
                 self.x_meter = float(x_inc)
                 self.y_meter = float(y_inc)
-                img = draw_circle_on_map_by_coord_and_angles(img,
-                                        (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
-                                        (lat, lon), pixel_size, (yaw), (255,0,0))
-            
-                img = draw_circle_on_map_by_coord_and_angles(img,
-                                        (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
-                                        (lat_zero, lon_zero), pixel_size, (yaw), (0,255,0))
-                # img = img[int(img.shape[0]*0.2):int(img.shape[0]*0.8), int(img.shape[1]*0.2):int(img.shape[1]*0.8)]
-                self.pub_pose_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))    
-                return True
+                if self.publish_calculated_pose_img is True:
+                    img = draw_circle_on_map_by_coord_and_angles(img,
+                                            (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
+                                            (lat, lon), self.map_resized_pixel_size, (yaw), (255,0,0))
+                
+                    img = draw_circle_on_map_by_coord_and_angles(img,
+                                            (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
+                                            (lat_zero, lon_zero), self.map_resized_pixel_size, (yaw), (0,255,0))
+                    # img = img[int(img.shape[0]*0.2):int(img.shape[0]*0.8), int(img.shape[1]*0.2):int(img.shape[1]*0.8)]
+                    self.pub_pose_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))    
+            else:
+                return False
         #send poses
         if self.first_cadr == False:
             g_c = GeodeticConvert()
             g_c.initialiseReference(self.main_map.main_points[0].lat, self.main_map.main_points[0].lon, 0)
             lat, lon, _ = g_c.ned2Geodetic(north=float(-self.y_meter), east=float(self.x_meter), down=0)
             self.generate_and_send_pose(lat, lon, self.imu_roll, self.imu_pitch, self.last_yaw)
-            self.generate_and_send_vel(north_speed, east_speed, yaw_speed)
+            self.generate_and_send_vel(north_speed, east_speed, yaw_speed, pose_from_privyazka)
         
         if self.publish_calculated_pose_img is True:
             self.pub_pose_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))    
@@ -290,7 +326,7 @@ class PositionFinder:
             self.y_meter += north_speed*delta_time
             return north_speed, east_speed, speed_limit, yaw_speed 
     
-    def generate_and_send_vel(self, north_speed, east_speed, yaw_speed):
+    def generate_and_send_vel(self, north_speed, east_speed, yaw_speed, pose_from_privyazka):
         msg = Odometry()
         msg.header.stamp = rospy.Time.now()
         msg.header.frame_id = 'base_link'
@@ -303,6 +339,9 @@ class PositionFinder:
         msg.pose.pose.orientation.z = odom_quat[2]
         msg.pose.pose.orientation.w = odom_quat[3]
         self.pub_estimated_odom.publish(msg)
+        msg = Bool()
+        msg.data = pose_from_privyazka
+        self.pub_pose_from.publish(msg)
 
     def low_pass_pose(self, x, y):
         delta_time = time() - self.low_pass_time
