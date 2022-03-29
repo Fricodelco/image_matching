@@ -2,6 +2,7 @@
   <rosparam file="$(env HOME)/copa5/config/config.yaml" />
   <node pkg="image_processing" type="position_finder.py" name="position_finder" output="screen"/>
   <node pkg="csv_data_pkg" type="filter_gps.py" name="gps_filter" output="screen"/>
+  <include file="$(find coparos)/launch/communicator.launch" />
   <node pkg="image_processing" type="image_logger.py" name="image_logger" output="screen"/>
   <node pkg="image_processing" type="logger_plata.py" name="logger_plata" output="screen"/>
   <node pkg="image_processing" type="logger.py" name="logger" output="screen"/>
