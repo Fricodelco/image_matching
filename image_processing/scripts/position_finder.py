@@ -61,6 +61,7 @@ class PositionFinder:
         self.first_rolling = True
         self.height_init = False
         #load params
+        self.realtime = self.config["realtime"]
         self.search_scale_for_roi_by_gps = self.config["search_scale_for_roi_by_gps"]
         self.search_scale_for_roi_by_detection = self.config["search_scale_for_roi_by_detection"]
         self.search_scale_for_roi_by_rolling_window = self.config["search_scale_for_roi_by_rolling_window"]
@@ -108,7 +109,11 @@ class PositionFinder:
     def photo_cb(self, data):
         if (self.use_baro is True and self.height_init is True) or self.use_baro is False:
             start_time = time()
-            image = self.bridge.imgmsg_to_cv2(data, "8UC1")
+            if self.realtime == False:
+                image = self.bridge.imgmsg_to_cv2(data, "8UC1")
+            else:
+                image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+                image = image[:,:,2]
             cadr = image_processing(img = image)
             cadr.find_pixel_size_by_height(self.height, self.poi)
             #resize by pixel size
