@@ -5,6 +5,7 @@ from PIL import Image, ImageOps, ImageDraw
 import csv
 import math
 import argparse
+from pathlib import Path
 
 class COLOR():
     __colors = [
@@ -29,6 +30,9 @@ class MapGenerator():
         lon_step = 0.0007
     
         self.lon_step = lon_step*(1-self.map_height_cup/self.map_height)
+
+        self.first_csv_file_path = "/home/vladislav/ran_fotodrone/src/image_matching/csv_data_pkg/map/logs/log_1.csv"
+        self.second_csv_file_path = "/home/vladislav/ran_fotodrone/src/image_matching/csv_data_pkg/map/logs/log_2.csv"
 
     def generate_map(self, center:list, lat_lon_datas:list, max_min: list)->Image:
         
@@ -133,17 +137,26 @@ def get_geo_data(file_names: list):
     
 def parse_args()->list:
     parser = argparse.ArgumentParser()
-    parser.add_argument("-l", "--logs", help="list of logs names", nargs='+', required=True)
+    parser.add_argument("-l", "--logs", help="list of logs names", nargs='+')
     
     args = parser.parse_args()
-    
-    return args.logs
+
+    return [] if args.logs is None else args.logs 
 
 def main():
     mapGenerator = MapGenerator()
     file_names = parse_args()
     if len(file_names)==0:
-        return
+        if(Path(mapGenerator.first_csv_file_path).is_file()):
+            file_names.append(mapGenerator.first_csv_file_path)
+        else:
+            print("Cant find file with path '{0}'".format(mapGenerator.first_csv_file_path))
+        if(Path(mapGenerator.second_csv_file_path).is_file()):
+            file_names.append(mapGenerator.second_csv_file_path)
+        else:
+            print("Cant find file with path '{0}'".format(mapGenerator.second_csv_file_path))
+        if len(file_names) !=2:
+            return
     
     center, lat_lon_datas, max_min = get_geo_data(file_names)
 
