@@ -60,12 +60,13 @@ class Logger:
             lat = data.latitude
             lon = data.longitude
             alt = data.altitude
-            # if self.realtime is True:
-            now = datetime.now()
-            delta = now - self.my_date
-            delta = str(delta)[:-4]
-            # else:
-                # delta = self.time_csv
+            if self.realtime is True:
+                now = datetime.now()
+                # delta = now - self.my_date
+                delta = now.strftime("%H:%M:%S.%f")[:-4]
+                # delta = str(delta)[:-4]
+            else:
+                delta = self.time_csv
             if self.pose_from_privyazka is True:
                 nsat = 1
             else:

@@ -40,8 +40,9 @@ class Logger:
             lon = data.longitude
             alt = data.altitude
             now = datetime.now()
-            delta = now - self.my_date
-            delta = str(delta)[:-4]
+            # delta = now - self.my_date
+            delta = now.strftime("%H:%M:%S.%f")[:-4]
+            # delta = str(delta)[:-4]
             nsat = 0
             row = {"time":str(delta),
                 "lat":float('{:.6f}'.format(lat)),

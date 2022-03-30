@@ -29,14 +29,20 @@ class Image_Logger:
         home = os.getenv("HOME")
         self.data_path = home+'/copa5/video/'
         self._name = self.data_path+'created_video.mp4'
-        self._fourcc = cv2.VideoWriter_fourcc(*'MP4V')
-        self._out = cv2.VideoWriter(self._name, self._fourcc, 5.0, (1920,1080))
+        self._fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        self._out = None
+        # self._out = cv2.VideoWriter(self._name, self._fourcc, 5.0, (1920,1080))
+        self.first_msg = True
         self.sub_video = rospy.Subscriber('/photo', Image, self.image_cb, queue_size = 1)
         self.bridge = CvBridge()
+        
         
 
     def image_cb(self, data):
         img = self.bridge.imgmsg_to_cv2(data,'bgr8')
+        if self.first_msg is True:
+            self._out = cv2.VideoWriter(self._name, self._fourcc, 5.0, (img.shape[1],img.shape[0]))
+            self.first_msg = False
         self._out.write(img)
 
     def load_params(self):

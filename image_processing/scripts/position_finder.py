@@ -60,6 +60,7 @@ class PositionFinder:
         self.roi_after_link = None
         self.first_rolling = True
         self.height_init = False
+        self.start_height = 0.0
         #load params
         self.realtime = self.config["realtime"]
         self.search_scale_for_roi_by_gps = self.config["search_scale_for_roi_by_gps"]
@@ -387,8 +388,12 @@ class PositionFinder:
         self.filtered_lon = data.longitude
 
     def baro_cb(self, data):
-        self.height_init = True
-        self.height = data.data
+        if self.height_init == False:
+            self.height_init = True
+            if self.realtime == True:
+                self.start_height = data.data
+        self.height = data.data - self.start_height
+        print(self.height)
 
     def find_matches(self, roi, cadr_rescaled):
         kp_1, kp_2, good, img_for_pub, descriptors_1, descriptors_2 = self.matcher.find_matches(roi, cadr_rescaled.rasterArray)
