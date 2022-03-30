@@ -28,8 +28,11 @@ class Image_Logger:
         self.realtime = params["realtime"]
         home = os.getenv("HOME")
         self.data_path = home+'/copa5/video/'
-        self._name = self.data_path+'created_video.mp4'
+        self._name = self.data_path+'created_video0.mp4'
         self._fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        self._time = None
+        self.iterator = 1
+        # self._fourcc = cv2.VideoWriter_fourcc(*'XVID')
         self._out = None
         # self._out = cv2.VideoWriter(self._name, self._fourcc, 5.0, (1920,1080))
         self.first_msg = True
@@ -41,9 +44,19 @@ class Image_Logger:
     def image_cb(self, data):
         img = self.bridge.imgmsg_to_cv2(data,'bgr8')
         if self.first_msg is True:
-            self._out = cv2.VideoWriter(self._name, self._fourcc, 5.0, (img.shape[1],img.shape[0]))
+            self._out = cv2.VideoWriter(self._name, self._fourcc, 4.0, (img.shape[1],img.shape[0]))
+            self._time = time()
             self.first_msg = False
         self._out.write(img)
+        if time()-self._time > 60:
+            print("start saving video part")
+            self._out.release()
+            self._out = cv2.VideoWriter(self.data_path+'created_video'+str(self.iterator)+'.mp4',
+                            self._fourcc, 4.0, (img.shape[1],img.shape[0]))
+            cap = cv2.VideoCapture(self.data_path+'created_video'+str(self.iterator)+'.mp4')
+            self.iterator+=1
+            self._time = time()
+            print("end saving video part")
 
     def load_params(self):
         home = os.getenv("HOME")
@@ -61,7 +74,7 @@ if __name__ == '__main__':
         rate = rospy.Rate(10.0)
         while not rospy.is_shutdown():
             rate.sleep()
-        logger._out.release()
+        # logger._out.release()
 
         # logger.save_data()
     

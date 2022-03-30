@@ -36,6 +36,7 @@ class Logger:
         self.sub_imu = rospy.Subscriber('/imu', Imu, self.imu_cb, queue_size=1)
         self.pose_from_privyazka = False
         self.sub_pose_from_privyazka = rospy.Subscriber('/pose_from_privyazka', Bool, self.pose_from_cb, queue_size=1)
+        self.empty_file = True
         if self.realtime is False:
             self.sub_time = rospy.Subscriber('/csv_time', String, self.csv_time_cb, queue_size=1)
             self.time_csv = None
@@ -79,7 +80,8 @@ class Logger:
                 "pitch":float('{:.3f}'.format(self.pitch)), 
                 "head":float('{:.3f}'.format(self.yaw)),
                 "ub":0, "nsat":str(nsat)}
-            self.rows.append(row)
+            self.save_data(row)
+            # self.rows.append(row)
             
 
     def odom_cb(self, data):
@@ -98,14 +100,26 @@ class Logger:
         self.pitch = (self.pitch*180)/np.pi
         self.yaw = (self.yaw*180)/np.pi
 
-    def save_data(self):
-        myFile = open(self.data_path, 'w')
+    def save_data(self, row):
+        if self.empty_file:
+            myFile = open(self.data_path, 'w')
+            self.empty_file = False
+        else:
+            myFile = open(self.data_path, 'a+')
         with myFile:
-            # writer = csv.writer(myFile)
             writer = csv.DictWriter(myFile, fieldnames=self.header, delimiter = ";")
-            writer.writeheader()
-            writer.writerows(self.rows)
-            # writer.writerows(self.data)
+            if self.empty_file:
+                writer.writeheader()
+            writer.writerow(row)
+    
+    # def save_data(self):
+    #     myFile = open(self.data_path, 'w')
+    #     with myFile:
+    #         # writer = csv.writer(myFile)
+    #         writer = csv.DictWriter(myFile, fieldnames=self.header, delimiter = ";")
+    #         writer.writeheader()
+    #         writer.writerows(self.rows)
+    #         # writer.writerows(self.data)
     
     def csv_time_cb(self, data):
         self.time_csv = data.data
@@ -125,7 +139,7 @@ if __name__ == '__main__':
     rate = rospy.Rate(10.0)
     while not rospy.is_shutdown():
         rate.sleep()
-    Logger.save_data()
+    # Logger.save_data()
     
 
 

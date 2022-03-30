@@ -17,6 +17,7 @@ class Logger:
         self.realtime = params["realtime"]
         home = os.getenv("HOME")
         self.data_path = home+'/copa5/created_csv/plata_log.csv'
+        self.empty_file = True       
         self.sub_latlon = rospy.Subscriber('/gps', NavSatFix, self.latlon_cb, queue_size=1)
         self.sub_imu = rospy.Subscriber('/imu', Imu, self.imu_cb, queue_size=1)
         self.sub_baro = rospy.Subscriber('/baro', Float32, self.baro_cb, queue_size=1)
@@ -52,7 +53,8 @@ class Logger:
                 "pitch":float('{:.3f}'.format(self.pitch)), 
                 "head":float('{:.3f}'.format(self.yaw)),
                 "ub":0, "nsat":str(nsat)}
-            self.rows.append(row)
+            self.save_data(row)
+            # self.rows.append(row)
             
     def imu_cb(self, data):
         quat = [0,0,0,0]
@@ -65,13 +67,25 @@ class Logger:
         self.pitch = (self.pitch*180)/np.pi
         self.yaw = (self.yaw*180)/np.pi
 
-    def save_data(self):
-        myFile = open(self.data_path, 'w')
+    def save_data(self, row):
+        if self.empty_file:
+            myFile = open(self.data_path, 'w')
+            self.empty_file = False
+        else:
+            myFile = open(self.data_path, 'a+')
         with myFile:
-            # writer = csv.writer(myFile)
             writer = csv.DictWriter(myFile, fieldnames=self.header, delimiter = ";")
-            writer.writeheader()
-            writer.writerows(self.rows)
+            if self.empty_file:
+                writer.writeheader()
+            writer.writerow(row)
+        
+    # def save_data(self):
+    #     myFile = open(self.data_path, 'w')
+    #     with myFile:
+    #         # writer = csv.writer(myFile)
+    #         writer = csv.DictWriter(myFile, fieldnames=self.header, delimiter = ";")
+    #         writer.writeheader()
+    #         writer.writerows(self.rows)
             # writer.writerows(self.data)
     
     def baro_cb(self, data):
@@ -91,7 +105,7 @@ if __name__ == '__main__':
     if logger.realtime is True:
         while not rospy.is_shutdown():
             rate.sleep()
-        logger.save_data()
+        # logger.save_data()
         
 
 
