@@ -105,7 +105,6 @@ class Logger:
     def save_data(self, row):
         if self.empty_file:
             myFile = open(self.data_path, 'w')
-            self.empty_file = False
         else:
             myFile = open(self.data_path, 'a+')
         with myFile:
@@ -113,6 +112,9 @@ class Logger:
             if self.empty_file:
                 writer.writeheader()
             writer.writerow(row)
+        if self.empty_file:
+            self.empty_file = False
+        
     
     # def save_data(self):
     #     myFile = open(self.data_path, 'w')
