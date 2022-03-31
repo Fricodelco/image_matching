@@ -7,6 +7,7 @@ from std_msgs.msg import String, Bool, Float32
 import tf
 from geometry_msgs.msg import  Point, Pose, Quaternion, Twist, Vector3
 from sensor_msgs.msg import Imu,  NavSatFix
+from coparos.msg import DroneInfo
 import csv
 from datetime import datetime
 import os
@@ -23,15 +24,22 @@ class Logger:
         self.sub_latlon = rospy.Subscriber('/gps', NavSatFix, self.latlon_cb, queue_size=1)
         self.sub_imu = rospy.Subscriber('/imu', Imu, self.imu_cb, queue_size=1)
         self.sub_baro = rospy.Subscriber('/baro', Float32, self.baro_cb, queue_size=1)
+        self.sub_droneinfo = rospy.Subscriber('/droningo', DroneInfo, self.droneinfo_cb, queue_size=1)
         self.roll = 0
         self.pitch = 0
         self.yaw = 0
         self.height = 0
+        self.nsat = 0
+        self.bat = 0
         self.header = ["time", "lat", "lon", "alt", "roll", "pitch", "head", "ub", "nsat"]
         self.rows = []
         self.time = time()
         self.first_msg = True
         self.my_date = None
+
+    def droneinfo_cb(self, data):
+        self.nsat = data.GPS_NUMBER_OF_SATELLITES
+        self.bat = data.VBAT
 
     def latlon_cb(self, data):
         if self.first_msg is True:
@@ -54,7 +62,8 @@ class Logger:
                 "roll":float('{:.3f}'.format(self.roll)),
                 "pitch":float('{:.3f}'.format(self.pitch)), 
                 "head":float('{:.3f}'.format(self.yaw)),
-                "ub":0, "nsat":str(nsat)}
+                "ub":str(float('{:.1f}'.format(self.bat))), 
+                "nsat":str(self.nsat)}
             self.save_data(row)
             # self.rows.append(row)
             
