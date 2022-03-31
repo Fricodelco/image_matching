@@ -27,7 +27,9 @@ class Image_Logger:
         params = self.load_params()
         self.realtime = params["realtime"]
         home = os.getenv("HOME")
-        self.data_path = home+'/copa5/video/'
+        now = datetime.now()
+        now = now.strftime("%d:%m:%Y,%H:%M")
+        self.data_path = home+'/copa5/video/' + str(now) + '_'
         self._name = self.data_path+'created_video0.mp4'
         self._fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         self._time = None

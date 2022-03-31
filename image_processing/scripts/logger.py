@@ -30,7 +30,9 @@ class Logger:
         params = self.load_params()
         self.realtime = params["realtime"]
         home = os.getenv("HOME")
-        self.data_path = home+'/copa5/created_csv/log.csv'
+        now = datetime.now()
+        now = now.strftime("%d:%m:%Y,%H:%M")
+        self.data_path = home+'/copa5/created_csv/log'+str(now)+'.csv'
         self.sub_latlon = rospy.Subscriber('/filtered_gps', NavSatFix, self.latlon_cb, queue_size=1)
         # self.sub_estimated_odom = rospy.Subscriber('/odom_by_img', Odometry, self.odom_cb, queue_size=1)
         self.sub_imu = rospy.Subscriber('/imu', Imu, self.imu_cb, queue_size=1)
