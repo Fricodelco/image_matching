@@ -114,7 +114,7 @@ class PositionFinder:
                 image = self.bridge.imgmsg_to_cv2(data, "8UC1")
             else:
                 image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-                image = image[:,:,2]
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             cadr = image_processing(img = image)
             cadr.find_pixel_size_by_height(self.height, self.poi)
             #resize by pixel size
