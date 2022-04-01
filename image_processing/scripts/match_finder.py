@@ -1,4 +1,5 @@
 #!/usr/bin/env python3  
+from pickletools import uint8
 import rospy
 import cv2
 import numpy as np
@@ -35,7 +36,7 @@ class match_finder():
         self.low_scale_restriction_homography = config["low_scale_restriction_homography"]
         self.high_scale_restriction_homography = config["high_scale_restriction_homography"]
         self.camera_pitch_angle = config["camera_pitch_angle"]
-        
+        self.cuda_enabled = self.is_cuda_cv()
         self.search_scale = 2
         self.roi_img = None
         self.percent_of_good_value = 1.0
@@ -185,8 +186,16 @@ class match_finder():
 
         keypoints_1, descriptors_1 = surf.detectAndCompute(img1,None)
         # keypoints_2, descriptors_2 = surf.detectAndCompute(img2,None)
-        bf = cv2.BFMatcher()
-        matches = bf.knnMatch(descriptors_1,roi.dp,k=2)
+        matches = []
+        if self.cuda_enabled == False:
+            bf = cv2.BFMatcher()
+            matches = bf.knnMatch(descriptors_1,roi.dp,k=2)
+        else:
+            matcherGPU = cv2.cuda.DescriptorMatcher_createBFMatcher(cv2.NORM_L2)
+            gpu_stream = cv2.cuda_Stream()
+            desc_gpu_1 = cv2.cuda_GpuMat(descriptors_1)
+            desc_gpu_2 = cv2.cuda_GpuMat(roi.dp)
+            matches = matcherGPU.knnMatch(desc_gpu_1, desc_gpu_2, k=2)
         # Apply ratio test
         good = []
         for m,n in matches:
@@ -328,3 +337,15 @@ class match_finder():
         res = cv2.LUT(img_original, lookUpTable)
         return res
     
+    def is_cuda_cv(self):
+        try:
+            count = cv2.cuda.getCudaEnabledDeviceCount()
+            if count > 0:
+                print("CUDA IS ENABLED")
+                return True
+            else:
+                print("CUDA IS DISABLED")
+                return False
+        except:
+            print("CUDA IS DISABLED")
+            return False
