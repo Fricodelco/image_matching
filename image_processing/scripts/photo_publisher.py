@@ -66,7 +66,8 @@ class PhotoPublisher:
         try:
             ret, frame = self.cap.read()
             if self.iterator > self.rate/5:
-                frame = frame[:,:,2]
+                # frame = frame[:,:,2]
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 self.pub_image.publish(self.bridge.cv2_to_imgmsg(frame, "8UC1"))
                 self.iterator = 0
             self.iterator+=1

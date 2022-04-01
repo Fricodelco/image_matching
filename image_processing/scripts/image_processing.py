@@ -22,6 +22,7 @@ class img_point:
 
 class image_processing():
     def __init__(self, filename = None, img = None):
+        self.cuad = self.is_cuda_cv()
         self.main_points = []
         self.g_c = GeodeticConvert()
         self.rasterArray = None
@@ -34,17 +35,20 @@ class image_processing():
             print("start job")
             try:
                 if file_exists is True:
-                    raster = gdal.Open(data_path+'/'+filename+'.tif')
+                    # raster = gdal.Open(data_path+'/'+filename+'.tif')
+                    self.rasterArray = cv2.imread(data_path+'/'+filename+'.tif')
                 else:
-                    raster = gdal.Open(data_path+'/'+filename+'.TIF')
+                    # raster = gdal.Open(data_path+'/'+filename+'.TIF')
+                    self.rasterArray = cv2.imread(data_path+'/'+filename+'.TIF')
             except:
                 print("NO MAP FILE")
                 return None
             print("map loaded", time() - time_start)
             time_start = time()
-            self.rasterArray = raster.ReadAsArray()
+            # self.rasterArray = raster.ReadAsArray()
             # self.rasterArray = np.dstack((self.rasterArray[0],self.rasterArray[1],self.rasterArray[2]))
-            self.rasterArray = self.rasterArray[0]
+            # self.rasterArray = self.rasterArray[0]
+            self.rasterArray = cv2.cvtColor(self.rasterArray, cv2.COLOR_RGB2GRAY)
             print("to gray complete", time() - time_start)
             time_start = time()
             with open(data_path+'/'+filename+'.@@@') as f:
@@ -85,6 +89,19 @@ class image_processing():
     def find_pixel_size_by_height(self, height, poi):
         x = Decimal(np.tanh(poi/2)*2*height)
         self.pixel_size = x/Decimal(self.rasterArray.shape[1])
+    
+    def is_cuda_cv(self):
+        try:
+            count = cv2.cuda.getCudaEnabledDeviceCount()
+            if count > 0:
+                print("CUDA IS ENABLED")
+                return True
+            else:
+                print("CUDA IS DISABLED")
+                return False
+        except:
+            print("CUDA IS DISABLED")
+            return False
         
 # def main():
     # map_ = image_processing(filename = '26_12_2021_nn')
