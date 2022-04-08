@@ -22,11 +22,14 @@ class img_point:
 
 class image_processing():
     def __init__(self, filename = None, img = None):
-        self.cuad = self.is_cuda_cv()
+        self.cuda = self.is_cuda_cv()
         self.main_points = []
         self.g_c = GeodeticConvert()
-        self.rasterArray = None
+        self.img = None
         self.pixel_size = 0
+        self.kp = None
+        self.dp = None
+        self.cadr_scale = 0.0
         time_start = time()
         if filename is not None:
             home = os.getenv("HOME")
@@ -36,19 +39,19 @@ class image_processing():
             try:
                 if file_exists is True:
                     # raster = gdal.Open(data_path+'/'+filename+'.tif')
-                    self.rasterArray = cv2.imread(data_path+'/'+filename+'.tif')
+                    self.img = cv2.imread(data_path+'/'+filename+'.tif')
                 else:
                     # raster = gdal.Open(data_path+'/'+filename+'.TIF')
-                    self.rasterArray = cv2.imread(data_path+'/'+filename+'.TIF')
+                    self.img = cv2.imread(data_path+'/'+filename+'.TIF')
             except:
                 print("NO MAP FILE")
                 return None
             print("map loaded", time() - time_start)
             time_start = time()
-            # self.rasterArray = raster.ReadAsArray()
-            # self.rasterArray = np.dstack((self.rasterArray[0],self.rasterArray[1],self.rasterArray[2]))
-            # self.rasterArray = self.rasterArray[0]
-            self.rasterArray = cv2.cvtColor(self.rasterArray, cv2.COLOR_RGB2GRAY)
+            # self.img = raster.ReadAsArray()
+            # self.img = np.dstack((self.img[0],self.img[1],self.img[2]))
+            # self.img = self.img[0]
+            self.img = cv2.cvtColor(self.img, cv2.COLOR_RGB2GRAY)
             print("to gray complete", time() - time_start)
             time_start = time()
             with open(data_path+'/'+filename+'.@@@') as f:
@@ -65,8 +68,8 @@ class image_processing():
                                     sub_str[2], sub_str[3])
                     self.main_points.append(point)
         else:
-            self.rasterArray = img
-            # self.rasterArray = self.rasterArray[:,:,2]
+            self.img = img
+            # self.img = self.img[:,:,2]
 
     def find_pixel_size(self):
         self.g_c.initialiseReference(self.main_points[0].lat, self.main_points[0].lon, 0)
@@ -80,28 +83,33 @@ class image_processing():
             y = y_1
         else:
             y = y_2
-        pixel_size_1 = Decimal((abs(x)))/Decimal(self.rasterArray.shape[0])
-        pixel_size_2 = Decimal((abs(y)))/Decimal(self.rasterArray.shape[1])
+        pixel_size_1 = Decimal((abs(x)))/Decimal(self.img.shape[0])
+        pixel_size_2 = Decimal((abs(y)))/Decimal(self.img.shape[1])
         pixel_size = (Decimal(pixel_size_1) + Decimal(pixel_size_2))/Decimal(2)
         self.pixel_size = pixel_size
         return pixel_size
     
     def find_pixel_size_by_height(self, height, poi):
         x = Decimal(np.tanh(poi/2)*2*height)
-        self.pixel_size = x/Decimal(self.rasterArray.shape[1])
+        self.pixel_size = x/Decimal(self.img.shape[1])
     
     def is_cuda_cv(self):
         try:
             count = cv2.cuda.getCudaEnabledDeviceCount()
             if count > 0:
-                print("CUDA IS ENABLED")
+                # print("CUDA IS ENABLED")
                 return True
             else:
-                print("CUDA IS DISABLED")
+                # print("CUDA IS DISABLED")
                 return False
         except:
-            print("CUDA IS DISABLED")
+            # print("CUDA IS DISABLED")
             return False
+
+    def find_kp_dp_scale(self, match_finder):
+        self.img, self.cadr_scale, self.pixel_size = match_finder.rescale_cadr(self.img, self.pixel_size)
+        self.kp, self.dp, self.img = match_finder.find_kp_dp(self.img)
+
         
 # def main():
     # map_ = image_processing(filename = '26_12_2021_nn')

@@ -37,6 +37,10 @@ class match_finder():
         self.high_scale_restriction_homography = config["high_scale_restriction_homography"]
         self.camera_pitch_angle = config["camera_pitch_angle"]
         self.cuda_enabled = self.is_cuda_cv()
+        if self.cuda_enabled is True:
+            print("CUDA IS ENABLED")
+        else:
+            print("CUDA IS DISABLED")
         self.search_scale = 2
         self.roi_img = None
         self.percent_of_good_value = 1.0
@@ -62,26 +66,26 @@ class match_finder():
         pixel_x = int(Decimal(x) / map_.pixel_size)
         pixel_y = int(Decimal(-y) / map_.pixel_size)
         #find the corners
-        width = cadr.rasterArray.shape[1]*search_scale
-        height = cadr.rasterArray.shape[0]*search_scale
+        width = cadr.img.shape[1]*search_scale/cadr.cadr_scale
+        height = cadr.img.shape[0]*search_scale/cadr.cadr_scale
         x_min = int(pixel_x - width/2)
         x_max = int(pixel_x + width/2)
         y_min = int(pixel_y - height/2)
         y_max = int(pixel_y + height/2)
         if x_min < 0: x_min = 0
         if y_min < 0: y_min = 0
-        if x_max > map_.rasterArray.shape[1]: x_max = map_.rasterArray.shape[1]
-        if y_max > map_.rasterArray.shape[0]: y_max = map_.rasterArray.shape[0]
+        if x_max > map_.img.shape[1]: x_max = map_.img.shape[1]
+        if y_max > map_.img.shape[0]: y_max = map_.img.shape[0]
         # print(x_min, x_max, y_min, y_max)
         #save to structure
-        img = map_.rasterArray[y_min:y_max, x_min:x_max]
+        img = map_.img[y_min:y_max, x_min:x_max]
         roi_img = roi(img = img, kp = None, dp = None,
                 pixel_size = map_.pixel_size, pixel_x_main_map = x_min, pixel_y_main_map = y_min)    
         return roi_img
 
     def roi_from_map(self, map_, rl_size_x, rl_size_y):
-        map_shape_x = map_.rasterArray.shape[1]
-        map_shape_y = map_.rasterArray.shape[0]
+        map_shape_x = map_.img.shape[1]
+        map_shape_y = map_.img.shape[0]
         div_x = map_shape_x/rl_size_x
         div_y = map_shape_y/rl_size_y
         drob_x, cel_x = math.modf(div_x)
@@ -117,15 +121,15 @@ class match_finder():
         x_max = border[1]
         y_min = border[2]
         y_max = border[3]
-        img = map_.rasterArray[x_min:x_max, y_min:y_max]
+        img = map_.img[x_min:x_max, y_min:y_max]
         roi_ = roi(img = img, kp = None, dp = None,
                 pixel_size = map_.pixel_size, pixel_x_main_map = x_min, pixel_y_main_map = y_min)    
         return roi_
 
     def roi_full_map(self, map_):
-        # shape = map_.rasterArray.shape
-        # img = map_.rasterArray[:int(0.7*shape[0]),:]
-        img = map_.rasterArray
+        # shape = map_.img.shape
+        # img = map_.img[:int(0.7*shape[0]),:]
+        img = map_.img
         roi_img = roi(img, 0, 0, map_.pixel_size)
         return roi_img
 
@@ -134,58 +138,44 @@ class match_finder():
         # if(abs(np.cos(yaw)) < np.cos(np.pi/4)):
         pixel_x = x_meter/float(map_.pixel_size)
         pixel_y = y_meter/float(map_.pixel_size)
-        width = cadr.rasterArray.shape[1]*search_scale
-        height = cadr.rasterArray.shape[0]*search_scale
+        width = cadr.img.shape[1]*search_scale/cadr.cadr_scale
+        height = cadr.img.shape[0]*search_scale/cadr.cadr_scale
         if width > height:
             height = width
         else:
             width = height
         # else:
-            # width = cadr.rasterArray.shape[0]*search_scale
-            # height = cadr.rasterArray.shape[1]*search_scale
+            # width = cadr.img.shape[0]*search_scale
+            # height = cadr.img.shape[1]*search_scale
         x_min = int(pixel_x - width/2)
         x_max = int(pixel_x + width/2)
         y_min = int(pixel_y - height/2)
         y_max = int(pixel_y + height/2)
         if x_min < 0: x_min = 0
         if y_min < 0: y_min = 0
-        if x_max > map_.rasterArray.shape[1]: x_max = map_.rasterArray.shape[1]
-        if y_max > map_.rasterArray.shape[0]: y_max = map_.rasterArray.shape[0]
+        if x_max > map_.img.shape[1]: x_max = map_.img.shape[1]
+        if y_max > map_.img.shape[0]: y_max = map_.img.shape[0]
         #save to structure
-        img = map_.rasterArray[y_min:y_max, x_min:x_max]
+        img = map_.img[y_min:y_max, x_min:x_max]
         roi_img = roi(img = img, kp = None, dp = None,
                 pixel_size = map_.pixel_size, pixel_x_main_map = x_min, pixel_y_main_map = y_min)    
         return roi_img
 
     def rescale_for_optimal_sift(self, roi, cadr):
-        optimal_scale_for_cadr = self.optimal_size_x/cadr.rasterArray.shape[1]
-        cadr.rasterArray = resize_img(cadr.rasterArray, optimal_scale_for_cadr)
-        cadr.pixel_size = cadr.pixel_size/Decimal(optimal_scale_for_cadr)
+        optimal_scale_for_cadr = cadr.cadr_scale
         roi.img = resize_img(roi.img, optimal_scale_for_cadr)
         roi.pixel_size = roi.pixel_size/Decimal(optimal_scale_for_cadr)
         return roi, cadr
     
-    def rescale_cadr(self, cadr):
-        optimal_scale_for_cadr = self.optimal_size_x/cadr.rasterArray.shape[1]
-        cadr.rasterArray = resize_img(cadr.rasterArray, optimal_scale_for_cadr)
-        cadr.pixel_size = cadr.pixel_size/Decimal(optimal_scale_for_cadr)
-        return cadr
+    def rescale_cadr(self, cadr, pixel_size):
+        optimal_scale_for_cadr = self.optimal_size_x/cadr.shape[1]
+        cadr = resize_img(cadr, optimal_scale_for_cadr)
+        pixel_size = pixel_size/Decimal(optimal_scale_for_cadr)
+        return cadr, optimal_scale_for_cadr, pixel_size
 
-    def find_matches(self, roi, img1): #roi, cadr
-        surf = cv2.xfeatures2d.SIFT_create(nfeatures = 0,
-            nOctaveLayers = self.nOctaveLayers,
-            contrastThreshold = self.contrastThreshold,
-            edgeThreshold = self.edgeThreshold,
-            sigma = self.sigma)
-        # surf = cv2.xfeatures2d.SURF_create(hessianThreshold = 300,
-        #                             nOctaves = 20,
-        #                             nOctaveLayers = 5,
-        #                             extended = True,
-        #                             upright = False)
-        
-
-        keypoints_1, descriptors_1 = surf.detectAndCompute(img1,None)
-        # keypoints_2, descriptors_2 = surf.detectAndCompute(img2,None)
+    def find_matches(self, roi, cadr): #roi, cadr
+        keypoints_1 = cadr.kp
+        descriptors_1 = cadr.dp
         matches = []
         if self.cuda_enabled == False:
             bf = cv2.BFMatcher()
@@ -201,8 +191,8 @@ class match_finder():
         for m,n in matches:
             if m.distance < self.points_quality*n.distance:
                 good.append([m])
-        img3 = cv2.drawMatchesKnn(img1, keypoints_1, roi.img, roi.kp, good,None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)     
-        return keypoints_1, roi.kp, good, img3, descriptors_1, roi.dp
+        img3 = cv2.drawMatchesKnn(cadr.img, keypoints_1, roi.img, roi.kp, good,None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)     
+        return good, img3
 
     def find_kp_dp(self, img):
         clahe = cv2.createCLAHE(clipLimit=30.0, tileGridSize=(8,8))
@@ -221,17 +211,14 @@ class match_finder():
         keypoints_1, descriptors_1 = surf.detectAndCompute(img, None)
         return keypoints_1, descriptors_1, img
 
-    def find_good_matches(self, descriptors_1, descriptors_2):
-        bf = cv2.BFMatcher()
-        matches = bf.knnMatch(descriptors_2,descriptors_1,k=2)
-        # Apply ratio test
-        good = []
-        for m,n in matches:
-            if m.distance < self.points_quality*n.distance:
-                good.append([m])
-        return good
-
-    def find_keypoints_transform(self, kp1, kp2, matches, img2, img1):
+    def find_keypoints_transform(self, matches, roi, cadr):
+        try:
+            img2 = roi.img
+        except:
+            img2 = roi.img
+        img1 = cadr.img
+        kp1 = cadr.kp
+        kp2 = roi.kp
         src_pts = np.float32([ kp1[m[0].queryIdx].pt for m in matches]).reshape(-1,1,2)
         dst_pts = np.float32([ kp2[m[0].trainIdx].pt for m in matches]).reshape(-1,1,2)
         M, mask = cv2.findHomography(src_pts, dst_pts, cv2.USAC_MAGSAC, 1.0)
@@ -304,10 +291,10 @@ class match_finder():
         roll = np.arctan2(H[0,2], H[2,2])
         return roll, pitch, yaw
 
-    def resize_by_scale(self, rasterArray, pixel_size, scale):
-        rasterArray = resize_img(rasterArray, scale)
+    def resize_by_scale(self, img, pixel_size, scale):
+        img = resize_img(img, scale)
         pixel_size = Decimal(pixel_size) / Decimal(scale)
-        return rasterArray, pixel_size
+        return img, pixel_size
 
     def normalize_images(self, roi, cadr):
         # roi = self.basicLinearTransform(roi, 1.0, 0.5)
@@ -341,11 +328,11 @@ class match_finder():
         try:
             count = cv2.cuda.getCudaEnabledDeviceCount()
             if count > 0:
-                print("CUDA IS ENABLED")
+                # print("CUDA IS ENABLED")
                 return True
             else:
-                print("CUDA IS DISABLED")
+                # print("CUDA IS DISABLED")
                 return False
         except:
-            print("CUDA IS DISABLED")
+            # print("CUDA IS DISABLED")
             return False
