@@ -83,6 +83,9 @@ class PositionFinder:
         self.publish_between_img = self.config["publish_between_img"]
         self.publish_calculated_pose_img = self.config["publish_calculated_pose_img"]
         self.publish_tf_img = self.config["publish_tf_img"]
+        self.time_sleep_before_wind_measure = self.config["time_sleep_before_wind_measure"]
+        self.wind_measure_time = self.config["wind_measure_time"]        
+
         #ros infrustructure
         if self.use_imu is True:
             self.sub_imu = rospy.Subscriber("imu", Imu, self.imu_cb)
@@ -341,7 +344,7 @@ class PositionFinder:
         if self.main_cadr == None:
             self.main_cadr = cadr
             self.time_between_cadrs = time()
-            rospy.sleep(6)
+            rospy.sleep(self.time_sleep_before_wind_measure)
             self.wind_time = time()
             return None, None
         good, _ = self.matcher.find_matches(cadr, self.main_cadr)
@@ -357,7 +360,7 @@ class PositionFinder:
         vy = delta_y/delta_t
         self.wind_velocities_y = np.append(self.wind_velocities_y, vy)
         self.wind_velocities_x = np.append(self.wind_velocities_x, vx)
-        if time() - self.wind_time > 6:
+        if time() - self.wind_time > self.wind_measure_time:
             self.wind_mes_flag = False
         # x2 = int(cadr.img.shape[1]/2 + 5*vx)
         # y2 = int(cadr.img.shape[0]/2 - 5*vy)
