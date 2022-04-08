@@ -24,8 +24,7 @@ import os
 import yaml
 class Image_Logger:
     def __init__(self):
-        params = self.load_params()
-        self.realtime = params["realtime"]
+        self.realtime = rospy.get_param("realtime")
         home = os.getenv("HOME")
         now = datetime.now()
         now = now.strftime("%d:%m:%Y,%H:%M")

@@ -25,9 +25,8 @@ from copa_msgs.msg import WindSpeedAction, WindSpeedResult, WindSpeedFeedback
 class PositionFinder:
     def __init__(self):
         #load main map
-        self.config = self.load_params()
         # self.main_map = image_processing('05_03_2022/2020_03_06_kor.TIF', 0)
-        self.main_map = image_processing(filename=self.config["map_name"])
+        self.main_map = image_processing(filename=rospy.get_param("map_name"))
         # self.main_map = image_processing('600m/Anapa2_g.tif', 0)
         self.map_pixel_size = self.main_map.find_pixel_size()
         self.first_cadr = True
@@ -35,7 +34,7 @@ class PositionFinder:
         self.poi = 84/180.0*np.pi
         self.f = 7.7
         #create matcher object
-        self.matcher = match_finder(self.config)
+        self.matcher = match_finder()
         #create global variables
         self.last_roi = None
         self.imu_roll = 0.0
@@ -67,24 +66,24 @@ class PositionFinder:
         self.wind_mes_flag = False
         self.wind_cadr = None
         #load params
-        self.realtime = self.config["realtime"]
-        self.search_scale_for_roi_by_gps = self.config["search_scale_for_roi_by_gps"]
-        self.search_scale_for_roi_by_detection = self.config["search_scale_for_roi_by_detection"]
-        self.search_scale_for_roi_by_rolling_window = self.config["search_scale_for_roi_by_rolling_window"]
-        self.count_of_pictures_for_odometry = self.config["count_of_pictures_for_odometry"]
-        self.low_pass_speed = self.config["low_pass_speed"]
-        self.low_pass_coordinates = self.config["low_pass_coordinates"]
-        self.use_imu = self.config["use_imu"]
-        self.use_gps = self.config["use_gps"]
-        self.use_baro = self.config["use_baro"]
-        self.height = self.config["height"]
-        self.publish_roi_img = self.config["publish_roi_img"]
-        self.publish_keypoints_matches_img = self.config["publish_keypoints_matches_img"]
-        self.publish_between_img = self.config["publish_between_img"]
-        self.publish_calculated_pose_img = self.config["publish_calculated_pose_img"]
-        self.publish_tf_img = self.config["publish_tf_img"]
-        self.time_sleep_before_wind_measure = self.config["time_sleep_before_wind_measure"]
-        self.wind_measure_time = self.config["wind_measure_time"]        
+        self.realtime = rospy.get_param("realtime")
+        self.search_scale_for_roi_by_gps = rospy.get_param("search_scale_for_roi_by_gps")
+        self.search_scale_for_roi_by_detection = rospy.get_param("search_scale_for_roi_by_detection")
+        self.search_scale_for_roi_by_rolling_window = rospy.get_param("search_scale_for_roi_by_rolling_window")
+        self.count_of_pictures_for_odometry = rospy.get_param("count_of_pictures_for_odometry")
+        self.low_pass_speed = rospy.get_param("low_pass_speed")
+        self.low_pass_coordinates = rospy.get_param("low_pass_coordinates")
+        self.use_imu = rospy.get_param("use_imu")
+        self.use_gps = rospy.get_param("use_gps")
+        self.use_baro = rospy.get_param("use_baro")
+        self.height = rospy.get_param("height")
+        self.publish_roi_img = rospy.get_param("publish_roi_img")
+        self.publish_keypoints_matches_img = rospy.get_param("publish_keypoints_matches_img")
+        self.publish_between_img = rospy.get_param("publish_between_img")
+        self.publish_calculated_pose_img = rospy.get_param("publish_calculated_pose_img")
+        self.publish_tf_img = rospy.get_param("publish_tf_img")
+        self.time_sleep_before_wind_measure = rospy.get_param("time_sleep_before_wind_measure")
+        self.wind_measure_time = rospy.get_param("wind_measure_time")
 
         #ros infrustructure
         if self.use_imu is True:

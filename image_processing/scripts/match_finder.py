@@ -24,18 +24,18 @@ class roi:
     
     
 class match_finder():
-    def __init__(self, config):
+    def __init__(self):
         #parameters
-        self.optimal_size_x = config["image_size_sift"]
-        self.points_quality = config["points_quality_sift"]
-        self.nOctaveLayers = config["nOctaveLayers_sift"]
-        self.contrastThreshold = config["contrastThreshold_sift"]
-        self.edgeThreshold = config["edgeThreshold_sift"]
-        self.sigma = config["sigma_sift"]
-        self.angle_restriction_homography = config["angle_restriction_homography"]
-        self.low_scale_restriction_homography = config["low_scale_restriction_homography"]
-        self.high_scale_restriction_homography = config["high_scale_restriction_homography"]
-        self.camera_pitch_angle = config["camera_pitch_angle"]
+        self.optimal_size_x = rospy.get_param("image_size_sift")
+        self.points_quality = rospy.get_param("points_quality_sift")
+        self.nOctaveLayers = rospy.get_param("nOctaveLayers_sift")
+        self.contrastThreshold = rospy.get_param("contrastThreshold_sift")
+        self.edgeThreshold = rospy.get_param("edgeThreshold_sift")
+        self.sigma = rospy.get_param("sigma_sift")
+        self.angle_restriction_homography = rospy.get_param("angle_restriction_homography")
+        self.low_scale_restriction_homography = rospy.get_param("low_scale_restriction_homography")
+        self.high_scale_restriction_homography = rospy.get_param("high_scale_restriction_homography")
+        self.camera_pitch_angle = rospy.get_param("camera_pitch_angle")
         self.cuda_enabled = self.is_cuda_cv()
         if self.cuda_enabled is True:
             print("CUDA IS ENABLED")

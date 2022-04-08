@@ -13,13 +13,12 @@ import yaml
 
 class PhotoPublisher:
     def __init__(self, photo):
-        params = self.load_params()
-        enable = params["realtime"]
+        enable = rospy.get_param("realtime")
         self.done = False
         if enable is True:
             self.done = None            
             return None
-        name = params["video_name"]
+        name = rospy.get_param("video_name")
         home = os.getenv("HOME")
         self.data_path = home+'/copa5/video/'+name
         if photo is True:
