@@ -11,6 +11,7 @@ import os
 import threading
 import yaml
 
+
 class PhotoPublisher:
     def __init__(self, photo):
         enable = rospy.get_param("realtime")

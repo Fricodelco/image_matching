@@ -2,7 +2,8 @@
 import rospy
 import os
 import yaml
-
+import logging
+import sys
 def load_params():
     data_path = find_path_to_config()
     if data_path is None:
@@ -27,5 +28,4 @@ if __name__ == '__main__':
     rospy.init_node('book_action_client_py')
     params = load_params()
     for key in params:
-        rospy.set_param(key, params[key])    
-    
+        rospy.set_param(key, params[key])

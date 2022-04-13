@@ -22,10 +22,14 @@ import yaml
 import os
 import actionlib
 from copa_msgs.msg import WindSpeedAction, WindSpeedResult, WindSpeedFeedback
+from datetime import datetime
+import logging
+
 class PositionFinder:
     def __init__(self):
         #load main map
         # self.main_map = image_processing('05_03_2022/2020_03_06_kor.TIF', 0)
+        self.logger = self.create_logger()
         self.main_map = image_processing(filename=rospy.get_param("map_name"))
         # self.main_map = image_processing('600m/Anapa2_g.tif', 0)
         self.map_pixel_size = self.main_map.find_pixel_size()
@@ -113,43 +117,49 @@ class PositionFinder:
         self.pub_estimated_odom = rospy.Publisher('/odom_by_img', Odometry, queue_size=1)
         self.wind_server = actionlib.SimpleActionServer("mes_wind", WindSpeedAction, self.windCall, False)
         self.wind_server.start()
-        print("Position Finder ready")
+        print("position finder ready")
+        self.logger.info("Position Finder ready")
 
     def photo_cb(self, data):
-        if (self.use_baro is True and self.height_init is True) or self.use_baro is False:
-            start_time = time()
-            if self.realtime == False:
-                image = self.bridge.imgmsg_to_cv2(data, "8UC1")
-            else:
-                image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-                image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            cadr = image_processing(img = image)
-            cadr.find_pixel_size_by_height(self.height, self.poi)
-            #IF THE WIND SERVER GOALED
-            if self.wind_mes_flag == True:
-                cadr.find_kp_dp_scale(self.matcher)
-                self.find_wind_speed(cadr)
-                print("cadr analize time wind speed: ", time() - start_time)
-            #REGULAR LOCALIZATION
-            else:
-                #resize by pixel size
-                scale, map_pixel_bigger = self.matcher.find_scale(self.map_pixel_size, cadr.pixel_size)
-                if map_pixel_bigger is True:
-                    cadr.img, cadr.pixel_size = self.matcher.resize_by_scale(
-                                            cadr.img, cadr.pixel_size, scale)
+        try:
+            self.log_state()
+            if (self.use_baro is True and self.height_init is True) or self.use_baro is False:
+                start_time = time()
+                if self.realtime == False:
+                    image = self.bridge.imgmsg_to_cv2(data, "8UC1")
                 else:
-                    #need copy of full size map for future
-                    self.main_map.img, self.main_map.pixel_size = self.matcher.resize_by_scale(
-                                        self.main_map.img, self.main_map.pixel_size, scale)
-                    self.map_pixel_size = self.main_map.pixel_size
-                #find match
-                cadr.find_kp_dp_scale(self.matcher)
-                self.find_pose(cadr)
-                print("cadr analize time: ", time() - start_time)
-        else:
-            print("HEIGHT NOT INTIALIZED")
-        
-        
+                    image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+                    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                cadr = image_processing(img = image)
+                cadr.find_pixel_size_by_height(self.height, self.poi)
+                #IF THE WIND SERVER GOALED
+                if self.wind_mes_flag == True:
+                    cadr.find_kp_dp_scale(self.matcher)
+                    self.find_wind_speed(cadr)
+                    print("cadr analize time wind speed: ", time() - start_time)
+                    self.logger.info("cadr analize time wind speed: "+str(time() - start_time))
+                #REGULAR LOCALIZATION
+                else:
+                    #resize by pixel size
+                    scale, map_pixel_bigger = self.matcher.find_scale(self.map_pixel_size, cadr.pixel_size)
+                    if map_pixel_bigger is True:
+                        cadr.img, cadr.pixel_size = self.matcher.resize_by_scale(
+                                                cadr.img, cadr.pixel_size, scale)
+                    else:
+                        #need copy of full size map for future
+                        self.main_map.img, self.main_map.pixel_size = self.matcher.resize_by_scale(
+                                            self.main_map.img, self.main_map.pixel_size, scale)
+                        self.map_pixel_size = self.main_map.pixel_size
+                    #find match
+                    cadr.find_kp_dp_scale(self.matcher)
+                    self.find_pose(cadr)
+                    print("cadr analize time: ", time() - start_time)
+                    self.logger.info("cadr analize time: " + str(time() - start_time))
+            else:
+                print("HEIGHT NOT INTIALIZED")
+        except e as Exception:
+            self.logger.error(e)    
+            
     def find_pose(self, cadr):
         #check if the cadr is first
         if self.first_cadr is True:
@@ -222,8 +232,11 @@ class PositionFinder:
         if(len(good)>10):
             try:
                 x_center, y_center, roll, pitch, yaw, M, img_tf = self.matcher.find_keypoints_transform(good, roi, cadr)
-            except Exception as e: x_center = None
+            except Exception as e:
+                x_center = None
+                self.logger.error(e)
         else:
+            self.logger.info("could not find transform")
             x_center = None
         #show coordinates
         if self.publish_calculated_pose_img is True:
@@ -276,12 +289,15 @@ class PositionFinder:
                     # img = img[int(img.shape[0]*0.2):int(img.shape[0]*0.8), int(img.shape[1]*0.2):int(img.shape[1]*0.8)]
                     self.pub_pose_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))    
             else:
+                self.logger.info("low pass position")
                 return False
         #send poses
         if self.first_cadr == False:
             g_c = GeodeticConvert()
             g_c.initialiseReference(self.main_map.main_points[0].lat, self.main_map.main_points[0].lon, 0)
             lat, lon, _ = g_c.ned2Geodetic(north=float(-self.y_meter), east=float(self.x_meter), down=0)
+            self.logger.info("calculated lat: "+str(lat)+
+                " calculated_lon: "+str(lon))
             self.generate_and_send_pose(lat, lon, self.imu_roll, self.imu_pitch, self.last_yaw)
             self.generate_and_send_vel(north_speed, east_speed, yaw_speed, pose_from_privyazka)
         
@@ -314,6 +330,10 @@ class PositionFinder:
                     north_speed = 0
                     east_speed = 0
                     speed_limit = True
+                    self.logger.info("low pass speed")
+                else:
+                    self.logger.info("north_speed: "+str(north_speed)+
+                                    " east_speed: "+str(east_speed))
                 # print("north speed: ",float('{:.3f}'.format(north_speed)), "east_speed: ", float('{:.3f}'.format(east_speed)), "yaw cadr: ", yaw_cadr)
                 # print(speed_limit)
                 yaw_speed = -1*(yaw_cadr-np.pi/2)/delta_time
@@ -431,14 +451,35 @@ class PositionFinder:
                 self.start_height = data.data
         self.height = data.data - self.start_height
         print(self.height)
-
-    def load_params(self):
-        home = os.getenv("HOME")
-        data_path = home+'/copa5/config/config.yaml'
-        with open(data_path) as file:
-            params = yaml.full_load(file)
-        return params
     
+    def create_logger(self):
+        home = os.getenv("HOME")
+        now = datetime.now()
+        now = now.strftime("%d:%m:%Y,%H:%M")
+        logname = home+'/copa5/logs/pos_finder_'+str(now)+'.log'
+        print("LOGNAME")
+        print(logname)
+        logging.basicConfig(filename=logname,
+                                filemode='w',
+                                format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                                datefmt='%H:%M:%S',
+                                level=logging.DEBUG,
+                                force=True)
+        logger = logging.getLogger('position_finder')
+        logger.setLevel(logging.DEBUG)
+        fh = logging.FileHandler('/home/parallels/copa5/spam.log')
+        fh.setLevel(logging.DEBUG)
+        fh.setFormatter(logging.Formatter(fmt='POSFINDER:[%(asctime)s: %(levelname)s] %(message)s'))
+        return logger
+
+    def log_state(self):
+        self.logger.info("first_cadr: "+str(self.first_cadr)+
+        " lat_gps: "+str(self.lat_gps)+
+        " lon_gps: "+str(self.lon_gps)+
+        " height_init: "+str(self.height_init)+
+        " start_height: "+str(self.start_height)+
+        " wind_mes_flag: "+str(self.wind_mes_flag)+
+        " height: "+str(self.height)) 
 
 if __name__ == '__main__':
     rospy.init_node('position_finder')
@@ -446,6 +487,7 @@ if __name__ == '__main__':
     rate = rospy.Rate(10.0)
     while not rospy.is_shutdown():
         rate.sleep()
+    print("position finder dead")
     
 
 
