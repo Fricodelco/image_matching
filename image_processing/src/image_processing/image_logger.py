@@ -75,12 +75,12 @@ class Image_Logger:
 if __name__ == '__main__':
     rospy.init_node('logger')
     logger = Image_Logger()
-    if logger.realtime == False:
+    if logger.realtime == True:
         rate = rospy.Rate(10.0)
         while not rospy.is_shutdown():
             rate.sleep()
         logger._out.release()
-
+        print("image logger dead")
         # logger.save_data()
     
 
