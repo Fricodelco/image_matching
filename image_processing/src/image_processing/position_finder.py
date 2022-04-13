@@ -24,6 +24,7 @@ import actionlib
 from copa_msgs.msg import WindSpeedAction, WindSpeedResult, WindSpeedFeedback
 from datetime import datetime
 import logging
+import sys
 
 class PositionFinder:
     def __init__(self):
@@ -117,7 +118,8 @@ class PositionFinder:
         self.pub_estimated_odom = rospy.Publisher('/odom_by_img', Odometry, queue_size=1)
         self.wind_server = actionlib.SimpleActionServer("mes_wind", WindSpeedAction, self.windCall, False)
         self.wind_server.start()
-        print("position finder ready")
+        # print("position finder ready")
+        sys.stdout.write('position finder ready\n')
         self.logger.info("Position Finder ready")
 
     def photo_cb(self, data):
@@ -487,7 +489,8 @@ if __name__ == '__main__':
     rate = rospy.Rate(10.0)
     while not rospy.is_shutdown():
         rate.sleep()
-    print("position finder dead")
+    # print("position finder dead")
+    sys.stdout.write('position finder dead\n')
     
 
 

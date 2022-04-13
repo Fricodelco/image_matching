@@ -80,7 +80,8 @@ if __name__ == '__main__':
         while not rospy.is_shutdown():
             rate.sleep()
         logger._out.release()
-        print("image logger dead")
+        # print("image logger dead")
+        sys.stdout.write('image logger dead\n')
         # logger.save_data()
     
 
