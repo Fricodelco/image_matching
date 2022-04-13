@@ -467,7 +467,7 @@ class PositionFinder:
                                 force=True)
         logger = logging.getLogger('position_finder')
         logger.setLevel(logging.DEBUG)
-        fh = logging.FileHandler('/home/parallels/copa5/spam.log')
+        fh = logging.FileHandler(logname)
         fh.setLevel(logging.DEBUG)
         fh.setFormatter(logging.Formatter(fmt='POSFINDER:[%(asctime)s: %(levelname)s] %(message)s'))
         return logger
