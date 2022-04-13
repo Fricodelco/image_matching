@@ -459,8 +459,8 @@ class PositionFinder:
         now = datetime.now()
         now = now.strftime("%d:%m:%Y,%H:%M")
         logname = home+'/copa5/logs/pos_finder_'+str(now)+'.log'
-        print("LOGNAME")
-        print(logname)
+        # print("LOGNAME")
+        # print(logname)
         logging.basicConfig(filename=logname,
                                 filemode='w',
                                 format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',

@@ -46,7 +46,7 @@ class Image_Logger:
             img = self.bridge.imgmsg_to_cv2(data,'bgr8')
         except:
             img = self.bridge.imgmsg_to_cv2(data,'8UC1')
-        print(img.shape)
+        # print(img.shape)
         if self.first_msg is True:
         #     self._out = cv2.VideoWriter(self._name, self._fourcc, 4.0, (img.shape[1],img.shape[0]))
             self._time = time()

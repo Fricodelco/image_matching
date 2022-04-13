@@ -35,7 +35,7 @@ class image_processing():
             home = os.getenv("HOME")
             data_path = home+'/copa5/map'
             file_exists = os.path.exists(data_path+'/'+filename+'.tif')
-            print("start job")
+            # print("start job")
             try:
                 if file_exists is True:
                     # raster = gdal.Open(data_path+'/'+filename+'.tif')
@@ -44,15 +44,15 @@ class image_processing():
                     # raster = gdal.Open(data_path+'/'+filename+'.TIF')
                     self.img = cv2.imread(data_path+'/'+filename+'.TIF')
             except:
-                print("NO MAP FILE")
+                # print("NO MAP FILE")
                 return None
-            print("map loaded", time() - time_start)
+            # print("map loaded", time() - time_start)
             time_start = time()
             # self.img = raster.ReadAsArray()
             # self.img = np.dstack((self.img[0],self.img[1],self.img[2]))
             # self.img = self.img[0]
             self.img = cv2.cvtColor(self.img, cv2.COLOR_RGB2GRAY)
-            print("to gray complete", time() - time_start)
+            # print("to gray complete", time() - time_start)
             time_start = time()
             with open(data_path+'/'+filename+'.@@@') as f:
                 lines = f.readlines()

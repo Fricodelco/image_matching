@@ -37,10 +37,10 @@ class match_finder():
         self.high_scale_restriction_homography = rospy.get_param("high_scale_restriction_homography")
         self.camera_pitch_angle = rospy.get_param("camera_pitch_angle")
         self.cuda_enabled = self.is_cuda_cv()
-        if self.cuda_enabled is True:
-            print("CUDA IS ENABLED")
-        else:
-            print("CUDA IS DISABLED")
+        # if self.cuda_enabled is True:
+            # print("CUDA IS ENABLED")
+        # else:
+            # print("CUDA IS DISABLED")
         self.search_scale = 2
         self.roi_img = None
         self.percent_of_good_value = 1.0

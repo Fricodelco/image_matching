@@ -44,7 +44,7 @@ class PhotoPublisher:
                     if fps == 0:
                         self.cap = cv2.VideoCapture(self.data_path+'.MP4', cv2.CAP_FFMPEG)
                 else:
-                    print("NO VIDEO FILE")
+                    # print("NO VIDEO FILE")
                     self.done = None            
                     return None
             # self.cap.set(cv2.CAP_GSTREAMER)
@@ -97,10 +97,11 @@ if __name__ == '__main__':
                 csvRosHandler = CsvRosHendler(path+'.csv')
                 thread = threading.Thread(target=csvRosHandler.start_publihs_gps_imu, daemon=True)
                 thread.start()
-            else:
-                print("NO CSV FILE")
+            # else:
+                # print("NO CSV FILE")
         except:
-            print("NO CSV FILE")
+            a=1
+            # print("NO CSV FILE")
         # rospack = rospkg.RosPack()
         # pkg_path = rospack.get_path('csv_data_pkg')
         # csvRosHandler = CsvRosHendler(os.path.join(pkg_path, 'data', '003-acl_222.csv'))

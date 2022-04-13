@@ -9,9 +9,9 @@ def load_params():
     if data_path is None:
         home = os.getenv("HOME")
         data_path = home+'/copa5/config/config.yaml'
-        print("NO EXTEND PARAM FILE, USE DEFAULT")
-    else:
-        print("USE EXTEND PARAM FILE", data_path)
+        # print("NO EXTEND PARAM FILE, USE DEFAULT")
+    # else:
+        # print("USE EXTEND PARAM FILE", data_path)
     with open(data_path) as file:
         params = yaml.full_load(file)
     return params
