@@ -23,6 +23,7 @@ if __name__ == '__main__':
         path = home+'/copa5/created_csv/wind_speed.txt'
         with open(path, 'w') as file:
             file.write('speed: '+ str(result.speed)+'\n')
-            file.write('angle: '+ str(result.angle))
+            angle = (result.angle/3.14)*180
+            file.write('angle: '+ str(angle))
         print("Result:", result.speed, result.angle)
     
