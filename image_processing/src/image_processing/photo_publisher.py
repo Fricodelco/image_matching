@@ -88,6 +88,8 @@ if __name__ == '__main__':
     # rospy.sleep(15)
     photo_publisher = PhotoPublisher(photo = False)
     # rospy.sleep(10)
+    if rospy.get_param("wind_speed_measure" == True):
+        rospy.sleep(2)
     if photo_publisher.done is not None:
         rate = rospy.Rate(photo_publisher.rate)
         path = photo_publisher.data_path

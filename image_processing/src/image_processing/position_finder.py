@@ -30,10 +30,15 @@ class PositionFinder:
     def __init__(self):
         #load main map
         # self.main_map = image_processing('05_03_2022/2020_03_06_kor.TIF', 0)
+        self.wind_speed_measure_param = rospy.get_param("wind_speed_measure")
         self.logger = self.create_logger()
-        self.main_map = image_processing(filename=rospy.get_param("map_name"))
+        if self.wind_speed_measure_param == False:
+            self.main_map = image_processing(filename=rospy.get_param("map_name"))
+            self.map_pixel_size = self.main_map.find_pixel_size()
+        else:
+            self.main_map = image_processing(img = np.zeros((100,100)))
+            self.map_pixel_size = 1
         # self.main_map = image_processing('600m/Anapa2_g.tif', 0)
-        self.map_pixel_size = self.main_map.find_pixel_size()
         self.first_cadr = True
         #camera params
         self.poi = 84/180.0*np.pi
@@ -159,7 +164,7 @@ class PositionFinder:
                     self.logger.info("cadr analize time: " + str(time() - start_time))
             else:
                 print("HEIGHT NOT INTIALIZED")
-        except e as Exception:
+        except Exception as e:
             self.logger.error(e)    
             
     def find_pose(self, cadr):
@@ -280,6 +285,12 @@ class PositionFinder:
                 pose_from_privyazka = True
                 self.x_meter = float(x_inc)
                 self.y_meter = float(y_inc)
+                g_c = GeodeticConvert()
+                g_c.initialiseReference(self.main_map.main_points[0].lat, self.main_map.main_points[0].lon, 0)
+                lat, lon, _ = g_c.ned2Geodetic(north=float(-y_inc), east=float(x_inc), down=0)
+                self.logger.info("calculated lat: "+str(lat)+
+                                " calculated_lon: "+str(lon))
+                self.generate_and_send_pose(lat, lon, self.imu_roll, self.imu_pitch, self.last_yaw)
                 if self.publish_calculated_pose_img is True:
                     img = draw_circle_on_map_by_coord_and_angles(img,
                                             (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
@@ -295,14 +306,7 @@ class PositionFinder:
                 return False
         #send poses
         if self.first_cadr == False:
-            g_c = GeodeticConvert()
-            g_c.initialiseReference(self.main_map.main_points[0].lat, self.main_map.main_points[0].lon, 0)
-            lat, lon, _ = g_c.ned2Geodetic(north=float(-self.y_meter), east=float(self.x_meter), down=0)
-            self.logger.info("calculated lat: "+str(lat)+
-                " calculated_lon: "+str(lon))
-            self.generate_and_send_pose(lat, lon, self.imu_roll, self.imu_pitch, self.last_yaw)
             self.generate_and_send_vel(north_speed, east_speed, yaw_speed, pose_from_privyazka)
-        
         if self.publish_calculated_pose_img is True:
             self.pub_pose_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))    
         if x_center is not None:
@@ -389,8 +393,6 @@ class PositionFinder:
         # img = cv2.line(img, (int(cadr.img.shape[1]/2), int(cadr.img.shape[0]/2)), (x2, y2), (255,0,0), 2)
         # self.pub_between_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))
         
-
-
     def generate_and_send_vel(self, north_speed, east_speed, yaw_speed, pose_from_privyazka):
         msg = Odometry()
         msg.header.stamp = rospy.Time.now()
