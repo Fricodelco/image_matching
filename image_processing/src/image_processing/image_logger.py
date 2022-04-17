@@ -22,6 +22,7 @@ import rospkg
 from datetime import datetime
 import os
 import yaml
+import sys
 class Image_Logger:
     def __init__(self):
         self.realtime = rospy.get_param("realtime")
@@ -30,13 +31,13 @@ class Image_Logger:
         now = now.strftime("%d:%m:%Y,%H:%M")
         self.data_path = home+'/copa5/video/'
         self._name = self.data_path+'created_video_'+str(now)+'.mp4'
-        # self._fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        self._fourcc = cv2.VideoWriter_fourcc(*'MP4V')
+        self._fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        # self._fourcc = cv2.VideoWriter_fourcc(*'MP4V')
+        # self._fourcc = cv2.VideoWriter_fourcc(*'DIVX')
         self._time = None
         self.iterator = 1
         # self._fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        self._out = None
-        self._out = cv2.VideoWriter(self._name, self._fourcc, 5.0, (1920,1080))
+        # self._out = cv2.VideoWriter(self._name, self._fourcc, 5.0, (1920, 1080), 0)
         self.first_msg = True
         self.sub_video = rospy.Subscriber('/photo', Image, self.image_cb, queue_size = 1)
         self.bridge = CvBridge()
@@ -44,25 +45,20 @@ class Image_Logger:
     def image_cb(self, data):
         try:
             img = self.bridge.imgmsg_to_cv2(data,'bgr8')
+            video_gray = False
         except:
             img = self.bridge.imgmsg_to_cv2(data,'8UC1')
-        # print(img.shape)
+            video_gray = True
         if self.first_msg is True:
-        #     self._out = cv2.VideoWriter(self._name, self._fourcc, 4.0, (img.shape[1],img.shape[0]))
+            if video_gray is True:
+                self._out = cv2.VideoWriter(self._name, self._fourcc, 5.0, (img.shape[1],img.shape[0]), 0)
+            else:
+                self._out = cv2.VideoWriter(self._name, self._fourcc, 5.0, (img.shape[1],img.shape[0]))
             self._time = time()
             self.first_msg = False
-        self._out.write(img)
-        if time()-self._time > 60:
-            os.system("sync")
-        #     print("start saving video part")
-        #     self._out.release()
-        #     self._out = cv2.VideoWriter(self.data_path+'created_video'+str(self.iterator)+'.mp4',
-        #                     self._fourcc, 4.0, (img.shape[1],img.shape[0]))
-        #     cap = cv2.VideoCapture(self.data_path+'created_video'+str(self.iterator)+'.mp4')
-        #     self.iterator+=1
-        #     self._time = time()
-        #     print("end saving video part")
-
+        else:
+            self._out.write(img)
+        
     def load_params(self):
         home = os.getenv("HOME")
         data_path = home+'/copa5/config/config.yaml'
