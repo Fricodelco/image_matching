@@ -454,7 +454,6 @@ class PositionFinder:
             if self.realtime == True:
                 self.start_height = data.data
         self.height = data.data - self.start_height
-        print(self.height)
     
     def create_logger(self):
         home = os.getenv("HOME")

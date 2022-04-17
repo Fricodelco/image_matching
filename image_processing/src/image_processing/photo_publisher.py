@@ -99,8 +99,8 @@ if __name__ == '__main__':
                 csvRosHandler = CsvRosHendler(path+'.csv')
                 thread = threading.Thread(target=csvRosHandler.start_publihs_gps_imu, daemon=True)
                 thread.start()
-            # else:
-                # print("NO CSV FILE")
+            else:
+                print("NO CSV FILE")
         except:
             a=1
             # print("NO CSV FILE")
