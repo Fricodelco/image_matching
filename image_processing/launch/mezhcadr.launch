@@ -1,5 +1,5 @@
 <launch>
   <node pkg="image_processing" type="mezhcadr.py" name="mezhcadr" output="screen"/>
-  <node pkg="image_processing" type="logger.py" name="logger" output="screen" launch-prefix="bash -c 'sleep 2; $0 $@' " />
+  <node pkg="image_processing" type="logger_mezhcadr.py" name="logger" output="screen" launch-prefix="bash -c 'sleep 2; $0 $@' " />
   <node pkg="image_processing" type="photo_publisher.py" name="photo_publisher" output="screen" launch-prefix="bash -c 'sleep 2; $0 $@' " />
 </launch>
