@@ -23,7 +23,7 @@ class Logger:
         self.sub_latlon = rospy.Subscriber('/gps', NavSatFix, self.latlon_cb, queue_size=1)
         self.sub_imu = rospy.Subscriber('/imu', Imu, self.imu_cb, queue_size=1)
         self.sub_baro = rospy.Subscriber('/baro', Float32, self.baro_cb, queue_size=1)
-        self.sub_droneinfo = rospy.Subscriber('/droneinfo', DroneInfo, self.droneinfo_cb, queue_size=1)
+        self.sub_droneinfo = rospy.Subscriber('/droneInfo', DroneInfo, self.droneinfo_cb, queue_size=1)
         self.roll = 0
         self.pitch = 0
         self.yaw = 0
