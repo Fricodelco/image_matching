@@ -5,7 +5,10 @@ import yaml
 import logging
 import sys
 def load_params():
-    data_path = find_path_to_config()
+    # try
+        # data_path = find_path_to_config()
+    # except
+    data_path = None
     if data_path is None:
         home = os.getenv("HOME")
         data_path = home+'/copa5/config/config.yaml'
@@ -19,7 +22,7 @@ def load_params():
 def find_path_to_config():
     name = 'config.yaml'
     path = '/media/'
-    for root, dirs, files in os.walk(path):
+    for root, dirs, files in os.walk(path+os.getlogin()):
         if name in files:
             return os.path.join(root, name)
     return None
