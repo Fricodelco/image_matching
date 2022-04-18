@@ -19,7 +19,7 @@ def load_params():
 def find_path_to_config():
     name = 'config.yaml'
     path = '/media/'
-    for root, dirs, files in os.walk(path+os.getlogin()):
+    for root, dirs, files in os.walk(path):
         if name in files:
             return os.path.join(root, name)
     return None
