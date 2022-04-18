@@ -136,8 +136,8 @@ class MezhCadr:
         delta_x =  -1*(x_center-cadr.img.shape[1]/2)*float(cadr.pixel_size)
         delta_y =  (y_center-cadr.img.shape[0]/2)*float(cadr.pixel_size)
         self.imu_yaw = self.imu_yaw - yaw_cadr + np.pi/2
-        x_trans = delta_y*np.cos(self.imu_yaw)
-        y_trans = delta_y*np.sin(self.imu_yaw)
+        x_trans = delta_y*np.sin(self.imu_yaw) - delta_x*np.cos(self.imu_yaw)
+        y_trans = delta_y*np.cos(self.imu_yaw) - delta_x*np.sin(self.imu_yaw)
         self.x_pose += x_trans
         self.y_pose += y_trans
         g_c = GeodeticConvert()
