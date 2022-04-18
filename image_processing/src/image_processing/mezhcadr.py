@@ -29,7 +29,7 @@ import sys
 class MezhCadr:
     def __init__(self):
         self.load_params()
-        self.first_cadr = True
+        self.first_cadr_bool = True
         #camera params
         self.poi = 84/180.0*np.pi
         self.f = 7.7
@@ -44,10 +44,15 @@ class MezhCadr:
         self.imu_roll = None
         self.imu_pitch = None
         self.imu_yaw = None
+        self.main_cadr = None
+        self.time_between_cadrs = None
+        self.cadr_counter = 0
+        self.x_pose = 0.0
+        self.y_pose = 0.0
 
         self.use_baro = rospy.get_param("use_baro")
         self.realtime = rospy.get_param("realtime")
-        
+        self.count_of_pictures_for_odometry = rospy.get_param("count_of_pictures_for_odometry")
         self.sub_imu = rospy.Subscriber("imu", Imu, self.imu_cb)
         self.sub_gps = rospy.Subscriber("gps", NavSatFix, self.gps_cb)
         if self.use_baro is True:
@@ -58,7 +63,7 @@ class MezhCadr:
         self.sub_photo = rospy.Subscriber("photo",Image, self.photo_cb, queue_size=1)
         self.bridge = CvBridge()
         self.pub_image = rospy.Publisher('/find_transform', Image, queue_size=1)
-        self.pub_latlon = rospy.Publisher('/coordinates_by_img', NavSatFix, queue_size=1)
+        self.pub_latlon = rospy.Publisher('/filtered_gps', NavSatFix, queue_size=1)
         self.pub_pose_from = rospy.Publisher('/pose_from_privyazka', Bool, queue_size=1)
         self.pub_estimated_odom = rospy.Publisher('/odom_by_img', Odometry, queue_size=1)
         sys.stdout.write('mezhcadr ready\n')
@@ -72,10 +77,22 @@ class MezhCadr:
                 else:
                     image = self.bridge.imgmsg_to_cv2(data, "bgr8")
                     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                cadr = image_processing(img = image)
-                cadr.find_pixel_size_by_height(self.height, self.poi)
-                cadr.find_kp_dp_scale(self.matcher)
-                print("cadr analize time wind speed: ", time() - start_time)
+                if(self.first_cadr_bool is True):
+                    self.first_cadr_bool = False
+                    self.main_cadr = image_processing(img = image)  
+                    self.main_cadr.find_pixel_size_by_height(self.height, self.poi)
+                    self.main_cadr.find_kp_dp_scale(self.matcher)
+                    return
+                if self.cadr_counter > self.count_of_pictures_for_odometry:
+                    cadr = image_processing(img = image)
+                    cadr.find_pixel_size_by_height(self.height, self.poi)
+                    cadr.find_kp_dp_scale(self.matcher)
+                    self.find_wind_speed(cadr)
+                    self.main_cadr = cadr
+                    self.cadr_counter = 0
+                else:
+                    self.cadr_counter += 1
+                print("cadr analize time: ", time() - start_time)
         except Exception as e:
             print(e) 
             
@@ -108,31 +125,8 @@ class MezhCadr:
                 self.x_meter += east_speed*delta_time
                 self.y_meter += north_speed*delta_time
                 return north_speed, east_speed, speed_limit, yaw_speed 
-            
-
-    def windCall(self, goal):
-        self.wind_mes_flag = True
-        answer = WindSpeedResult()
-        while self.wind_mes_flag == True:
-            rospy.sleep(0.1)
-        mean_x = np.mean(self.wind_velocities_x)
-        mean_y = np.mean(self.wind_velocities_y)
-        print("calculated wind speed: ", mean_x, mean_y)
-        speed = np.sqrt(mean_x**2 + mean_y**2)
-        alpha = np.arctan2(mean_y, mean_x)
-        answer.speed = speed
-        answer.angle = alpha
-        self.wind_velocities_x = np.empty(1)
-        self.wind_velocities_y = np.empty(1)
-        self.wind_server.set_succeeded(answer)
 
     def find_wind_speed(self, cadr):
-        if self.main_cadr == None:
-            self.main_cadr = cadr
-            self.time_between_cadrs = time()
-            rospy.sleep(self.time_sleep_before_wind_measure)
-            self.wind_time = time()
-            return None, None
         good, _ = self.matcher.find_matches(cadr, self.main_cadr)
         x_center, y_center, roll, pitch, yaw_cadr, M, img = self.matcher.find_keypoints_transform(good, cadr, self.main_cadr)
         if x_center is None:
@@ -141,13 +135,22 @@ class MezhCadr:
             return None, None 
         delta_x =  -1*(x_center-cadr.img.shape[1]/2)*float(cadr.pixel_size)
         delta_y =  (y_center-cadr.img.shape[0]/2)*float(cadr.pixel_size)
-        delta_t = time() - self.time_between_cadrs
-        vx = delta_x/delta_t
-        vy = delta_y/delta_t
-        self.wind_velocities_y = np.append(self.wind_velocities_y, vy)
-        self.wind_velocities_x = np.append(self.wind_velocities_x, vx)
-        if time() - self.wind_time > self.wind_measure_time:
-            self.wind_mes_flag = False
+        self.imu_yaw = self.imu_yaw - yaw_cadr + np.pi/2
+        x_trans = delta_y*np.cos(self.imu_yaw)
+        y_trans = delta_y*np.sin(self.imu_yaw)
+        self.x_pose += x_trans
+        self.y_pose += y_trans
+        g_c = GeodeticConvert()
+        g_c.initialiseReference(self.lat_gps, self.lon_gps, 0)
+        lat_mezh, lon_mezh, _ = g_c.ned2Geodetic(north=float(self.y_pose), east=float(self.x_pose), down=0)
+        self.generate_and_send_pose(lat_mezh, lon_mezh, self.imu_roll, self.imu_pitch, self.imu_yaw)
+        # delta_t = time() - self.time_between_cadrs
+        # vx = delta_x/delta_t
+        # vy = delta_y/delta_t
+        # self.wind_velocities_y = np.append(self.wind_velocities_y, vy)
+        # self.wind_velocities_x = np.append(self.wind_velocities_x, vx)
+        # if time() - self.wind_time > self.wind_measure_time:
+        #     self.wind_mes_flag = False
         # x2 = int(cadr.img.shape[1]/2 + 5*vx)
         # y2 = int(cadr.img.shape[0]/2 - 5*vy)
         # img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
