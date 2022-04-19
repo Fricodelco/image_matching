@@ -25,7 +25,8 @@ import yaml
 import sys
 class Image_Logger:
     def __init__(self):
-        self.realtime = rospy.get_param("realtime")
+        self.realtime = self.get_realtime()
+        print("REALTIME PARAM", self.realtime)
         home = os.getenv("HOME")
         now = datetime.now()
         now = now.strftime("%d:%m:%Y,%H:%M")
@@ -66,20 +67,24 @@ class Image_Logger:
             params = yaml.full_load(file)
         return params
     
-
+    def get_realtime(self):
+        realtime = None
+        while(realtime is None):
+            try:
+                realtime = rospy.get_param("realtime")
+            except:
+                realtime = None
+            rospy.sleep(0.1)
+        return realtime
 
 if __name__ == '__main__':
     rospy.init_node('logger')
     logger = Image_Logger()
     if logger.realtime == False:
-        rate = rospy.Rate(10.0)
-        while not rospy.is_shutdown():
-            rate.sleep()
+        rospy.spin()
         logger._out.release()
-        # print("image logger dead")
         sys.stdout.write('image logger dead\n')
-        # logger.save_data()
-    
+        
 
 
 

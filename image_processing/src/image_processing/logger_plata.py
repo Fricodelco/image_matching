@@ -14,7 +14,7 @@ import os
 import yaml
 class Logger:
     def __init__(self):
-        self.realtime = rospy.get_param("realtime")
+        self.realtime = self.get_realtime()
         home = os.getenv("HOME")
         now = datetime.now()
         now = now.strftime("%d:%m:%Y,%H:%M")
@@ -35,6 +35,16 @@ class Logger:
         self.time = time()
         self.first_msg = True
         self.my_date = None
+
+    def get_realtime(self):
+        realtime = None
+        while(realtime is None):
+            try:
+                realtime = rospy.get_param("realtime")
+            except:
+                realtime = None
+            rospy.sleep(0.1)
+        return realtime
 
     def droneinfo_cb(self, data):
         self.nsat = data.GPS_NUMBER_OF_SATELLITES
@@ -114,10 +124,7 @@ if __name__ == '__main__':
     logger = Logger()
     rate = rospy.Rate(10.0)
     if logger.realtime is True:
-        while not rospy.is_shutdown():
-            rate.sleep()
-        # logger.save_data()
-        
+        rospy.spin()
 
 
 

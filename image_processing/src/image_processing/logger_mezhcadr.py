@@ -27,7 +27,7 @@ class Logger:
         #load main map
         
         # rospack = rospkg.RosPack()
-        self.realtime = rospy.get_param("realtime")
+        self.realtime = self.get_realtime()
         home = os.getenv("HOME")
         now = datetime.now()
         now = now.strftime("%d:%m:%Y,%H:%M")
@@ -133,14 +133,21 @@ class Logger:
             params = yaml.full_load(file)
         return params
     
+    def get_realtime(self):
+        realtime = None
+        while(realtime is None):
+            try:
+                realtime = rospy.get_param("realtime")
+            except:
+                realtime = None
+            rospy.sleep(0.1)
+        return realtime
 
 
 if __name__ == '__main__':
     rospy.init_node('logger')
     Logger = Logger()
-    rate = rospy.Rate(10.0)
-    while not rospy.is_shutdown():
-        rate.sleep()
+    rospy.spin()
     # Logger.save_data()
     
 

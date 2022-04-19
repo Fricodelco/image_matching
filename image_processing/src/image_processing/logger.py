@@ -139,9 +139,7 @@ class Logger:
 if __name__ == '__main__':
     rospy.init_node('logger')
     logger = Logger()
-    rate = rospy.Rate(10.0)
-    while not rospy.is_shutdown():
-        rate.sleep()
+    rospy.spin()
     # Logger.save_data()
     
 

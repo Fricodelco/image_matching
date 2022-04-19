@@ -228,6 +228,16 @@ class MezhCadr:
         for key in params:
             rospy.set_param(key, params[key])       
 
+    def get_realtime(self):
+        realtime = None
+        while(realtime is None):
+            try:
+                realtime = rospy.get_param("realtime")
+            except:
+                realtime = None
+            rospy.sleep(0.1)
+        return realtime
+
 if __name__ == '__main__':
     rospy.init_node('position_finder')
     photo_publisher = MezhCadr()

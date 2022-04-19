@@ -14,7 +14,7 @@ import yaml
 
 class PhotoPublisher:
     def __init__(self, photo):
-        enable = rospy.get_param("realtime")
+        enable = self.get_realtime()
         self.done = False
         if enable is True:
             self.done = None            
@@ -55,6 +55,16 @@ class PhotoPublisher:
         self.pub_image = rospy.Publisher('/photo', Image, queue_size=1)
         self.bridge = CvBridge()
         self.iterator = 0
+
+    def get_realtime(self):
+        realtime = None
+        while(realtime is None):
+            try:
+                realtime = rospy.get_param("realtime")
+            except:
+                realtime = None
+            rospy.sleep(0.1)
+        return realtime
 
     def timer_callback(self, timer):
         if self.iterator < len(self.photos_paths):

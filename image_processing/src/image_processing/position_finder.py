@@ -30,6 +30,7 @@ class PositionFinder:
     def __init__(self):
         #load main map
         # self.main_map = image_processing('05_03_2022/2020_03_06_kor.TIF', 0)
+        self.realtime = self.get_realtime()
         self.wind_speed_measure_param = rospy.get_param("wind_speed_measure")
         self.logger = self.create_logger()
         if self.wind_speed_measure_param == False:
@@ -76,7 +77,6 @@ class PositionFinder:
         self.wind_mes_flag = False
         self.wind_cadr = None
         #load params
-        self.realtime = rospy.get_param("realtime")
         self.search_scale_for_roi_by_gps = rospy.get_param("search_scale_for_roi_by_gps")
         self.search_scale_for_roi_by_detection = rospy.get_param("search_scale_for_roi_by_detection")
         self.search_scale_for_roi_by_rolling_window = rospy.get_param("search_scale_for_roi_by_rolling_window")
@@ -483,6 +483,16 @@ class PositionFinder:
         " start_height: "+str(self.start_height)+
         " wind_mes_flag: "+str(self.wind_mes_flag)+
         " height: "+str(self.height)) 
+
+    def get_realtime(self):
+        realtime = None
+        while(realtime is None):
+            try:
+                realtime = rospy.get_param("realtime")
+            except:
+                realtime = None
+            rospy.sleep(0.1)
+        return realtime
 
 if __name__ == '__main__':
     rospy.init_node('position_finder')

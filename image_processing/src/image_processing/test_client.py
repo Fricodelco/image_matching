@@ -13,9 +13,19 @@ def action_client():
     client.send_goal(goal, feedback_cb=action_feedback)
     client.wait_for_result()
     return client.get_result()
-
+    
+def get_realtime():
+    realtime = None
+    while(realtime is None):
+        try:
+            realtime = rospy.get_param("realtime")
+        except:
+            realtime = None
+        rospy.sleep(0.1)
+    return realtime
 
 if __name__ == '__main__':
+    realtime = get_realtime()
     rospy.init_node('book_action_client_py')
     if rospy.get_param("wind_speed_measure") == True:
         result = action_client()
