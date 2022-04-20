@@ -49,8 +49,10 @@ class MezhCadr:
         self.cadr_counter = 0
         self.x_pose = 0.0
         self.y_pose = 0.0
+        self.time_of_work = None
 
         self.use_baro = rospy.get_param("use_baro")
+        self.working_time = rospy.get_param("working_time")
         self.realtime = rospy.get_param("realtime")
         self.count_of_pictures_for_odometry = rospy.get_param("count_of_pictures_for_odometry")
         self.sub_imu = rospy.Subscriber("imu", Imu, self.imu_cb)
@@ -69,8 +71,11 @@ class MezhCadr:
         sys.stdout.write('mezhcadr ready\n')
         
     def photo_cb(self, data):
+        if self.time_of_work is None:
+            self.time_of_work = time()
         try:
-            if ((self.use_baro is True and self.height_init is True) or self.use_baro is False) and (self.gps_init is True):
+            tow = time() - self.time_of_work
+            if ((self.use_baro is True and self.height_init is True) or self.use_baro is False) and (self.gps_init is True) and (tow < self.working_time):
                 start_time = time()
                 if self.realtime == False:
                     image = self.bridge.imgmsg_to_cv2(data, "8UC1")
