@@ -23,7 +23,7 @@ def find_path_to_config():
     name = 'config.yaml'
     path = '/media/jetson'
     for file in os.listdir(path):
-        print("Looking for extended config in: ", path+file)
+        print("Looking for extended config in: ", path+'/'+file)
         if os.path.exists(path+'/'+file+'/config.yaml') is True:
             return path+file+'/config.yaml'
     return None        
