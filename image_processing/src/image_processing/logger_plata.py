@@ -20,6 +20,7 @@ class Logger:
         now = now.strftime("%d:%m:%Y,%H:%M")
         self.data_path = home+'/copa5/created_csv/plata_log'+str(now)+'.csv'
         self.empty_file = True       
+        self.first_msg = True
         self.sub_latlon = rospy.Subscriber('/gps', NavSatFix, self.latlon_cb, queue_size=1)
         self.sub_imu = rospy.Subscriber('/imu', Imu, self.imu_cb, queue_size=1)
         self.sub_baro = rospy.Subscriber('/baro', Float32, self.baro_cb, queue_size=1)
@@ -33,7 +34,6 @@ class Logger:
         self.header = ["time", "lat", "lon", "alt", "roll", "pitch", "head", "ub", "nsat"]
         self.rows = []
         self.time = time()
-        self.first_msg = True
         self.my_date = None
 
     def get_realtime(self):

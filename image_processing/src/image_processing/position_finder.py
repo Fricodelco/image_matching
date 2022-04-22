@@ -128,45 +128,46 @@ class PositionFinder:
         self.logger.info("Position Finder ready")
 
     def photo_cb(self, data):
-        # try:
-        self.log_state()
-        if (self.use_baro is True and self.height_init is True) or self.use_baro is False:
-            start_time = time()
-            if self.realtime == False:
-                image = self.bridge.imgmsg_to_cv2(data, "8UC1")
-            else:
-                image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-                image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            cadr = image_processing(img = image)
-            cadr.find_pixel_size_by_height(self.height, self.poi)
-            #IF THE WIND SERVER GOALED
-            if self.wind_mes_flag == True:
-                cadr.find_kp_dp_scale(self.matcher)
-                self.find_wind_speed(cadr)
-                print("cadr analize time wind speed: ", time() - start_time)
-                self.logger.info("cadr analize time wind speed: "+str(time() - start_time))
-            #REGULAR LOCALIZATION
-            else:
-                #resize by pixel size
-                scale, map_pixel_bigger = self.matcher.find_scale(self.map_pixel_size, cadr.pixel_size)
-                if map_pixel_bigger is True:
-                    print(cadr.img.shape, scale)
-                    cadr.img, cadr.pixel_size = self.matcher.resize_by_scale(
-                                            cadr.img, cadr.pixel_size, scale)
+        try:
+            self.log_state()
+            if (self.use_baro is True and self.height_init is True) or self.use_baro is False:
+                start_time = time()
+                if self.realtime == False:
+                    image = self.bridge.imgmsg_to_cv2(data, "8UC1")
                 else:
-                    #need copy of full size map for future
-                    self.main_map.img, self.main_map.pixel_size = self.matcher.resize_by_scale(
-                                        self.main_map.img, self.main_map.pixel_size, scale)
-                    self.map_pixel_size = self.main_map.pixel_size
-                #find match
-                cadr.find_kp_dp_scale(self.matcher)
-                self.find_pose(cadr)
-                print("cadr analize time: ", time() - start_time)
-                self.logger.info("cadr analize time: " + str(time() - start_time))
-        else:
-            print("HEIGHT NOT INTIALIZED")
-        # except Exception as e:
-            # self.logger.error(e)  
+                    image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+                    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                cadr = image_processing(img = image)
+                cadr.find_pixel_size_by_height(self.height, self.poi)
+                #IF THE WIND SERVER GOALED
+                if self.wind_mes_flag == True:
+                    cadr.find_kp_dp_scale(self.matcher)
+                    self.find_wind_speed(cadr)
+                    print("cadr analize time wind speed: ", time() - start_time)
+                    self.logger.info("cadr analize time wind speed: "+str(time() - start_time))
+                #REGULAR LOCALIZATION
+                else:
+                    #resize by pixel size
+                    scale, map_pixel_bigger = self.matcher.find_scale(self.map_pixel_size, cadr.pixel_size)
+                    if map_pixel_bigger is True:
+                        # print(self.map_pixel_size, cadr.pixel_size)
+                        # print(cadr.img.shape, scale)
+                        cadr.img, cadr.pixel_size = self.matcher.resize_by_scale(
+                                                cadr.img, cadr.pixel_size, scale)
+                    else:
+                        #need copy of full size map for future
+                        self.main_map.img, self.main_map.pixel_size = self.matcher.resize_by_scale(
+                                            self.main_map.img, self.main_map.pixel_size, scale)
+                        self.map_pixel_size = self.main_map.pixel_size
+                    #find match
+                    cadr.find_kp_dp_scale(self.matcher)
+                    self.find_pose(cadr)
+                    print("cadr analize time: ", time() - start_time)
+                    self.logger.info("cadr analize time: " + str(time() - start_time))
+            else:
+                print("HEIGHT NOT INTIALIZED")
+        except Exception as e:
+            self.logger.error(e)  
             # print(e)  
             
     def find_pose(self, cadr):
