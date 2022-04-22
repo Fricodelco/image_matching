@@ -150,6 +150,7 @@ class PositionFinder:
                 #resize by pixel size
                 scale, map_pixel_bigger = self.matcher.find_scale(self.map_pixel_size, cadr.pixel_size)
                 if map_pixel_bigger is True:
+                    print(cadr.img.shape)
                     cadr.img, cadr.pixel_size = self.matcher.resize_by_scale(
                                             cadr.img, cadr.pixel_size, scale)
                 else:
