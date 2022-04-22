@@ -132,11 +132,11 @@ class PositionFinder:
             self.log_state()
             if (self.use_baro is True and self.height_init is True) or self.use_baro is False:
                 start_time = time()
-                if self.realtime == False:
-                    image = self.bridge.imgmsg_to_cv2(data, "8UC1")
-                else:
-                    image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-                    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                # if self.realtime == False:
+                image = self.bridge.imgmsg_to_cv2(data, "8UC1")
+                # else:
+                    # image = self.bridge.imgmsg_to_cv2(data, "8UC1")
+                    # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
                 cadr = image_processing(img = image)
                 cadr.find_pixel_size_by_height(self.height, self.poi)
                 #IF THE WIND SERVER GOALED
