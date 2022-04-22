@@ -80,7 +80,7 @@ class Image_Logger:
 if __name__ == '__main__':
     rospy.init_node('logger')
     logger = Image_Logger()
-    if logger.realtime == False:
+    if logger.realtime == True:
         rospy.spin()
         logger._out.release()
         sys.stdout.write('image logger dead\n')
