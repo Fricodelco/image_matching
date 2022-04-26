@@ -54,6 +54,7 @@ class MezhCadr:
         self.use_baro = rospy.get_param("use_baro")
         self.working_time = rospy.get_param("working_time")
         self.realtime = rospy.get_param("realtime")
+        self.compas = rospy.get_param("compas")
         self.count_of_pictures_for_odometry = rospy.get_param("count_of_pictures_for_odometry")
         self.sub_imu = rospy.Subscriber("imu", Imu, self.imu_cb)
         self.sub_gps = rospy.Subscriber("gps", NavSatFix, self.gps_cb)
@@ -126,7 +127,8 @@ class MezhCadr:
                 # print("north speed: ",float('{:.3f}'.format(north_speed)), "east_speed: ", float('{:.3f}'.format(east_speed)), "yaw cadr: ", yaw_cadr)
                 # print(speed_limit)
                 yaw_speed = -1*(yaw_cadr-np.pi/2)/delta_time
-                self.last_yaw -= yaw_cadr-np.pi/2
+                if self.compas == False:
+                    self.last_yaw -= yaw_cadr-np.pi/2
                 self.x_meter += east_speed*delta_time
                 self.y_meter += north_speed*delta_time
                 return north_speed, east_speed, speed_limit, yaw_speed 
@@ -140,7 +142,8 @@ class MezhCadr:
             return None, None 
         delta_x =  -1*(x_center-cadr.img.shape[1]/2)*float(cadr.pixel_size)
         delta_y =  (y_center-cadr.img.shape[0]/2)*float(cadr.pixel_size)
-        self.imu_yaw = self.imu_yaw - yaw_cadr + np.pi/2
+        if self.compas == False:
+            self.imu_yaw = self.imu_yaw - yaw_cadr + np.pi/2
         x_trans = delta_y*np.sin(self.imu_yaw) - delta_x*np.cos(self.imu_yaw)
         y_trans = delta_y*np.cos(self.imu_yaw) - delta_x*np.sin(self.imu_yaw)
         self.x_pose += x_trans
