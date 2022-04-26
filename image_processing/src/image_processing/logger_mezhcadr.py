@@ -41,7 +41,7 @@ class Logger:
         self.empty_file = True
         if self.realtime is False:
             self.sub_time = rospy.Subscriber('/csv_time', String, self.csv_time_cb, queue_size=1)
-            self.time_csv = None
+            self.time_csv = ''
         self.roll = 0
         self.pitch = 0
         self.yaw = 0
