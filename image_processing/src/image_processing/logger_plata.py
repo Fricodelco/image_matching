@@ -3,7 +3,7 @@ import rospy
 import cv2
 import numpy as np
 from time import time
-from std_msgs.msg import String, Bool, Float32
+from std_msgs.msg import String, Bool, Float64
 import tf
 from geometry_msgs.msg import  Point, Pose, Quaternion, Twist, Vector3
 from sensor_msgs.msg import Imu,  NavSatFix
@@ -23,7 +23,7 @@ class Logger:
         self.first_msg = True
         self.sub_latlon = rospy.Subscriber('/gps', NavSatFix, self.latlon_cb, queue_size=1)
         self.sub_imu = rospy.Subscriber('/imu', Imu, self.imu_cb, queue_size=1)
-        self.sub_baro = rospy.Subscriber('/baro', Float32, self.baro_cb, queue_size=1)
+        self.sub_baro = rospy.Subscriber('/baro', Float64, self.baro_cb, queue_size=1)
         self.sub_droneinfo = rospy.Subscriber('/droneInfo', DroneInfo, self.droneinfo_cb, queue_size=1)
         self.roll = 0
         self.pitch = 0
