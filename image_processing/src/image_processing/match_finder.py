@@ -244,8 +244,8 @@ class match_finder():
         delta_pitch_pixels = -1*height*np.sin(pitch+self.camera_pitch_angle)/float(roi.pixel_size)
         delta_roll_pixels = height*np.sin(roll)/float(roi.pixel_size)
 
-        x_center = x_center + delta_pitch_pixels*np.cos(yaw) + delta_roll_pixels*np.sin(yaw)
-        y_center = y_center - delta_pitch_pixels*np.sin(yaw) + delta_roll_pixels*np.cos(yaw)
+        x_center = x_center + delta_pitch_pixels*np.sin(yaw) + delta_roll_pixels*np.cos(yaw)
+        y_center = y_center - delta_pitch_pixels*np.cos(yaw) + delta_roll_pixels*np.sin(yaw)
         scale_roi_to_map = roi.pixel_size/map_.pixel_size
         roi_shape_x = roi.img.shape[1] * float(scale_roi_to_map)
         roi_shape_y = roi.img.shape[0] * float(scale_roi_to_map)
@@ -269,7 +269,7 @@ class match_finder():
         #[0 0  0 1]
         u, _, vh = np.linalg.svd(H[0:2, 0:2])
         R = u @ vh
-        yaw = np.arctan2(R[0,0], R[1,0])
+        yaw = np.arctan2(R[1,0], R[0,0])
         # yaw = np.arctan2(H[1,0], H[0,0]) - np.pi
         # roll
         #[1 0 0  0]

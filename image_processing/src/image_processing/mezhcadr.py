@@ -102,36 +102,6 @@ class MezhCadr:
         except Exception as e:
             print(e) 
             
-    def compare_cadrs(self, cadr, cadr_old):
-        good, _ = self.matcher.find_matches(cadr, cadr_old)
-        x_center, y_center, roll, pitch, yaw_cadr, M, img = self.matcher.find_keypoints_transform(good, cadr, cadr_old)
-        if x_center is not None:
-            if self.publish_between_img is True:
-                if img is not None:
-                    self.pub_between_image.publish(self.bridge.cv2_to_imgmsg(img, "8UC1"))
-            delta_y = -1*(x_center-cadr.img.shape[1]/2)*float(cadr.pixel_size)
-            delta_x =  (y_center-cadr.img.shape[0]/2)*float(cadr.pixel_size)
-            x_trans = delta_x*np.cos(self.last_yaw)# - delta_y*np.sin(self.last_yaw)
-            y_trans = -1*delta_x*np.sin(self.last_yaw)# - delta_y*np.cos(self.last_yaw)
-            delta_time = time() - self.time_between_cadrs
-            self.time_between_cadrs = time()
-            # print(delta_time, yaw_cadr - np.pi/2)
-            if delta_time < 2.0 and abs(yaw_cadr - np.pi/2) < 1.0:
-                north_speed = y_trans/delta_time
-                east_speed = x_trans/delta_time
-                speed_limit = False
-                if abs(north_speed) > self.low_pass_speed or abs(east_speed) > self.low_pass_speed:
-                    north_speed = 0
-                    east_speed = 0
-                    speed_limit = True
-                # print("north speed: ",float('{:.3f}'.format(north_speed)), "east_speed: ", float('{:.3f}'.format(east_speed)), "yaw cadr: ", yaw_cadr)
-                # print(speed_limit)
-                yaw_speed = -1*(yaw_cadr-np.pi/2)/delta_time
-                if self.compas == False:
-                    self.last_yaw -= yaw_cadr-np.pi/2
-                self.x_meter += east_speed*delta_time
-                self.y_meter += north_speed*delta_time
-                return north_speed, east_speed, speed_limit, yaw_speed 
 
     def find_wind_speed(self, cadr):
         good, _ = self.matcher.find_matches(cadr, self.main_cadr)

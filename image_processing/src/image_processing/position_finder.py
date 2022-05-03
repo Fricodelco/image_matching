@@ -11,7 +11,7 @@ from match_finder import match_finder
 from time import time
 from sensor_msgs.msg import Image, Imu, CompressedImage, NavSatFix
 from nav_msgs.msg import Odometry
-from std_msgs.msg import Float32, Bool
+from std_msgs.msg import Float64, Bool
 from cv_bridge import CvBridge
 import copy
 from utils import resize_img, draw_circle_on_map_by_coord_and_angles
@@ -76,6 +76,10 @@ class PositionFinder:
         self.wind_time = None
         self.wind_mes_flag = False
         self.wind_cadr = None
+        self.gps_init = False
+        self.gps_time = False
+        self.gps_trans = None
+        self.pose_from_privyazka = False
         #load params
         self.search_scale_for_roi_by_gps = rospy.get_param("search_scale_for_roi_by_gps")
         self.search_scale_for_roi_by_detection = rospy.get_param("search_scale_for_roi_by_detection")
@@ -101,7 +105,7 @@ class PositionFinder:
         # if self.use_gps is True:
         self.sub_gps = rospy.Subscriber("gps", NavSatFix, self.gps_cb)
         if self.use_baro is True:
-            self.sub_baro = rospy.Subscriber("baro", Float32, self.baro_cb)
+            self.sub_baro = rospy.Subscriber("baro", Float64, self.baro_cb)
         self.sub_photo = rospy.Subscriber("photo",Image, self.photo_cb, queue_size=1)
         self.bridge = CvBridge()
         if self.publish_tf_img is True:
@@ -168,7 +172,7 @@ class PositionFinder:
                 print("HEIGHT NOT INTIALIZED")
         except Exception as e:
             self.logger.error(e)  
-            # print(e)  
+            print(e)  
             
     def find_pose(self, cadr):
         #check if the cadr is first
@@ -222,19 +226,17 @@ class PositionFinder:
         
     def pose_from_roi(self, roi, cadr):
         good, img_for_pub = self.matcher.find_matches(roi, cadr)
-        self.between_iter+=1
         north_speed = 0
         east_speed = 0
         yaw_speed = 0
         speed_limit = False
-        if self.between_iter > self.count_of_pictures_for_odometry:
+        if time() - self.time_between_cadrs > self.count_of_pictures_for_odometry:
             try:
                 north_speed, east_speed, speed_limit, yaw_speed = self.compare_cadrs(cadr, self.old_cadr)
             except:
                 north_speed = 0
                 east_speed = 0
             self.old_cadr = cadr
-            self.between_iter = 0
         
         if self.publish_keypoints_matches_img is True:
             self.pub_keypoints_image.publish(self.bridge.cv2_to_imgmsg(img_for_pub, "rgb8"))
@@ -266,7 +268,7 @@ class PositionFinder:
                                         (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
                                         (self.filtered_lat, self.filtered_lon), self.map_resized_pixel_size, (self.last_yaw), (255,255,255))
             
-        pose_from_privyazka = False
+        self.pose_from_privyazka = False
         
         if x_center is not None and speed_limit is False:
             if self.publish_tf_img is True:
@@ -285,7 +287,7 @@ class PositionFinder:
                 self.y_meter = float(y_inc)
             #low pass check for coordinates
             if self.low_pass_pose(float(x_inc), float(y_inc)) is True:
-                pose_from_privyazka = True
+                self.pose_from_privyazka = True
                 self.x_meter = float(x_inc)
                 self.y_meter = float(y_inc)
                 g_c = GeodeticConvert()
@@ -308,8 +310,6 @@ class PositionFinder:
                 self.logger.info("low pass position")
                 return False
         #send poses
-        if self.first_cadr == False:
-            self.generate_and_send_vel(north_speed, east_speed, yaw_speed, pose_from_privyazka)
         if self.publish_calculated_pose_img is True:
             self.pub_pose_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))    
         if x_center is not None:
@@ -324,14 +324,14 @@ class PositionFinder:
             if self.publish_between_img is True:
                 if img is not None:
                     self.pub_between_image.publish(self.bridge.cv2_to_imgmsg(img, "8UC1"))
-            delta_y = -1*(x_center-cadr.img.shape[1]/2)*float(cadr.pixel_size)
-            delta_x =  (y_center-cadr.img.shape[0]/2)*float(cadr.pixel_size)
-            x_trans = delta_x*np.cos(self.last_yaw)# - delta_y*np.sin(self.last_yaw)
-            y_trans = -1*delta_x*np.sin(self.last_yaw)# - delta_y*np.cos(self.last_yaw)
+            delta_x =  -1*(x_center-cadr.img.shape[1]/2)*float(cadr.pixel_size)
+            delta_y =  (y_center-cadr.img.shape[0]/2)*float(cadr.pixel_size)
+            x_trans = delta_y*np.sin(self.imu_yaw) - delta_x*np.cos(self.imu_yaw)
+            y_trans = delta_y*np.cos(self.imu_yaw) - delta_x*np.sin(self.imu_yaw)
             delta_time = time() - self.time_between_cadrs
             self.time_between_cadrs = time()
             # print(delta_time, yaw_cadr - np.pi/2)
-            if delta_time < 2.0 and abs(yaw_cadr - np.pi/2) < 1.0:
+            if delta_time < 2.0 and abs(yaw_cadr) < 1.0:
                 north_speed = y_trans/delta_time
                 east_speed = x_trans/delta_time
                 speed_limit = False
@@ -343,12 +343,14 @@ class PositionFinder:
                 else:
                     self.logger.info("north_speed: "+str(north_speed)+
                                     " east_speed: "+str(east_speed))
-                # print("north speed: ",float('{:.3f}'.format(north_speed)), "east_speed: ", float('{:.3f}'.format(east_speed)), "yaw cadr: ", yaw_cadr)
                 # print(speed_limit)
-                yaw_speed = -1*(yaw_cadr-np.pi/2)/delta_time
-                self.last_yaw -= yaw_cadr-np.pi/2
+                # print("north speed: ",float('{:.3f}'.format(north_speed)), "east_speed: ", float('{:.3f}'.format(east_speed)), "yaw cadr: ", yaw_cadr)
+                yaw_speed = -1*(yaw_cadr)/delta_time
+                self.generate_and_send_vel(north_speed, east_speed, yaw_speed, self.pose_from_privyazka)
+                
+                self.last_yaw -= yaw_cadr
                 self.x_meter += east_speed*delta_time
-                self.y_meter += north_speed*delta_time
+                self.y_meter -= north_speed*delta_time
                 return north_speed, east_speed, speed_limit, yaw_speed 
             
 
@@ -401,7 +403,7 @@ class PositionFinder:
         msg.header.stamp = rospy.Time.now()
         msg.header.frame_id = 'base_link'
         msg.twist.twist.linear.x = east_speed
-        msg.twist.twist.linear.y = -north_speed
+        msg.twist.twist.linear.y = north_speed
         msg.twist.twist.angular.z = yaw_speed
         odom_quat = tf.transformations.quaternion_from_euler(self.imu_roll, self.imu_pitch, self.last_yaw)
         msg.pose.pose.orientation.x = odom_quat[0]
@@ -444,8 +446,19 @@ class PositionFinder:
         self.imu_roll, self.imu_pitch, self.imu_yaw = tf.transformations.euler_from_quaternion(quat)
 
     def gps_cb(self, data):
+        # if self.gps_init == False:
+        #     self.gps_init = True
+        #     self.gps_time = time()
+        # if time() - self.gps_time > self.count_of_pictures_for_odometry:
+        #     g_c = GeodeticConvert()
+        #     g_c.initialiseReference(self.lat_gps, self.lon_gps, 0)
+        #     x, y, _ = g_c.geodetic2Ned(data.latitude, data.longitude, 0)
+        #     self.gps_trans = np.sqrt(x*x + y*y)
+        #     self.gps_time = time()
+        #     print(self.gps_trans
         self.lat_gps = data.latitude
         self.lon_gps = data.longitude
+
     
     def filter_cb(self, data):
         self.filtered_lat = data.latitude

@@ -10,6 +10,6 @@
   <include file="$(find coparos)/launch/communicator.launch" >
     <arg name="node_start_delay" value="7.0"/>
   </include> 
-  <node pkg="sony_photo_pub" type="photo_talker" name="camera_pub" launch-prefix="bash -c 'sleep 5; $0 $@' " />
-  
+  <!--<node pkg="sony_photo_pub" type="photo_talker" name="camera_pub" launch-prefix="bash -c 'sleep 5; $0 $@' " />-->
+  <node pkg="image_processing" type="csi_camera.py" name="csi_camera" output="screen"/>
 </launch>
