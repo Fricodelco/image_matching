@@ -28,7 +28,7 @@ class Logger:
         self.command = data.data
         now = datetime.now()
         delta = now.strftime("%H:%M:%S.%f")[:-4]
-        row = {"time":str(delta),
+        row = {"time":'['+str(delta)+']',
                 "command":self.command}
         self.save_data(row)
 
@@ -48,7 +48,7 @@ class Logger:
         else:
             myFile = open(self.data_path, 'a+')
         with myFile:
-            writer = csv.DictWriter(myFile, fieldnames=self.header, delimiter = ";")
+            writer = csv.DictWriter(myFile, fieldnames=self.header, delimiter = " ")
             if self.empty_file:
                 writer.writeheader()
             writer.writerow(row)
