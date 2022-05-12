@@ -28,7 +28,7 @@ class Logger:
         self.command = data.data
         delta = now.strftime("%H:%M:%S.%f")[:-4]
         row = {"time":str(delta),
-                "command":self.command)}
+                "command":self.command}
         self.save_data(row)
 
     def get_realtime(self):
