@@ -114,6 +114,7 @@ class match_finder():
                 if y_max - y_min < step_y/5:
                     break
                 borders.append([x_min, x_max, y_min, y_max])
+        # print(borders)
         return borders
     
     def create_roi_from_border(self, map_, border):
@@ -196,17 +197,18 @@ class match_finder():
 
     def find_kp_dp(self, img):
         clahe = cv2.createCLAHE(clipLimit=30.0, tileGridSize=(8,8))
-        img = clahe.apply(img)
-        surf = cv2.xfeatures2d.SIFT_create(nfeatures = 0,
-            nOctaveLayers = self.nOctaveLayers,
-            contrastThreshold = self.contrastThreshold,
-            edgeThreshold = self.edgeThreshold,
-            sigma = self.sigma)
-        # surf = cv2.xfeatures2d.SURF_create(hessianThreshold = 300,
-        #                             nOctaves = 20,
-        #                             nOctaveLayers = 5,
-        #                             extended = True,
-        #                             upright = False)
+        # clahe = cv2.createCLAHE(clipLimit=20.0, tileGridSize=(4,4))
+        # img = clahe.apply(img)
+        # surf = cv2.xfeatures2d.SIFT_create(nfeatures = 0,
+        #     nOctaveLayers = self.nOctaveLayers,
+        #     contrastThreshold = self.contrastThreshold,
+        #     edgeThreshold = self.edgeThreshold,
+        #     sigma = self.sigma)
+        surf = cv2.xfeatures2d.SURF_create(hessianThreshold = 300,
+                                    nOctaves = 20,
+                                    nOctaveLayers = 5,
+                                    extended = True,
+                                    upright = False)
         
         keypoints_1, descriptors_1 = surf.detectAndCompute(img, None)
         return keypoints_1, descriptors_1, img

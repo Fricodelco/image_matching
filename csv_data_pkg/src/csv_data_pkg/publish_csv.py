@@ -7,6 +7,7 @@ import tf
 from sensor_msgs.msg import Imu, NavSatFix
 from numpy import pi
 from std_msgs.msg import Float64, String
+from coparos.msg import DroneInfo
 
 class CsvRosHendler():
     def __init__(self, csv_file_path: str) -> None:
@@ -18,6 +19,7 @@ class CsvRosHendler():
         self.gps_publisher = rospy.Publisher('/gps', NavSatFix, queue_size=10)
         self.baro_publisher = rospy.Publisher('/baro', Float64, queue_size=10)
         self.str_publisher = rospy.Publisher('/csv_time', String, queue_size=10)
+        self.drone_info_publisher = rospy.Publisher('/droneInfo', DroneInfo, queue_size=10)
         self.__parse_csv_data()
     
     def __parse_csv_data(self) -> None:
@@ -70,10 +72,15 @@ class CsvRosHendler():
 
         str_msg = String()
         str_msg.data = str(self.time_stamps[index])
+
+        info_msg = DroneInfo()
+        info_msg.GPS_NUMBER_OF_SATELLITES = int(self.csv_data[index][8])
+        self.drone_info_publisher.publish(info_msg)
         self.imu_publisher.publish(imu_msg)
         self.gps_publisher.publish(gps_msg)
         self.baro_publisher.publish(baro_msg)
         self.str_publisher.publish(str_msg)
+
 
 if __name__=="__main__":
     rospy.init_node('publish_csv_node')

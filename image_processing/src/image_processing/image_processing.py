@@ -109,7 +109,6 @@ class image_processing():
     def find_kp_dp_scale(self, match_finder):
         self.img, self.cadr_scale, self.pixel_size = match_finder.rescale_cadr(self.img, self.pixel_size)
         self.kp, self.dp, self.img = match_finder.find_kp_dp(self.img)
-
         
 # def main():
     # map_ = image_processing(filename = '26_12_2021_nn')

@@ -106,6 +106,9 @@ class PositionFinder:
         self.sub_gps = rospy.Subscriber("gps", NavSatFix, self.gps_cb)
         if self.use_baro is True:
             self.sub_baro = rospy.Subscriber("baro", Float64, self.baro_cb)
+            self.height_init = False
+        else:
+            self.height_init = True
         self.sub_photo = rospy.Subscriber("photo",Image, self.photo_cb, queue_size=1)
         self.bridge = CvBridge()
         if self.publish_tf_img is True:
@@ -193,16 +196,19 @@ class PositionFinder:
                         self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(self.roi_after_link.img, "8UC1"))
             else:
                 if self.first_rolling == True:
-                    rolling_window_size_x = cadr.img.shape[1]*self.search_scale_for_roi_by_rolling_window
-                    rolling_window_size_y = cadr.img.shape[1]*self.search_scale_for_roi_by_rolling_window
+                    rolling_window_size_x = (float(cadr.pixel_size)/float(self.main_map.pixel_size))*cadr.img.shape[1]*self.search_scale_for_roi_by_rolling_window
+                    rolling_window_size_y = (float(cadr.pixel_size)/float(self.main_map.pixel_size))*cadr.img.shape[1]*self.search_scale_for_roi_by_rolling_window
                     roi_borders = self.matcher.roi_from_map(self.main_map, rolling_window_size_x, rolling_window_size_y)
                     for border in roi_borders:
                         roi = self.matcher.create_roi_from_border(self.main_map, border)
-                        roi, cadr = self.matcher.rescale_for_optimal_sift(roi, cadr)
-                        roi.kp, roi.dp, roi.img = self.matcher.find_kp_dp(roi.img)        
-                        self.rois.append(roi)
-                        if self.publish_roi_img is True:
-                            self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(roi.img, "8UC1"))
+                        if roi.img.shape[0] > 0 and roi.img.shape[1] > 0:
+                            roi, cadr = self.matcher.rescale_for_optimal_sift(roi, cadr)
+                            print(roi.img.shape, cadr.img.shape)
+                            roi.kp, roi.dp, roi.img = self.matcher.find_kp_dp(roi.img)        
+                            if len(roi.kp) > 0:
+                                self.rois.append(roi)
+                            if self.publish_roi_img is True:
+                                self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(roi.img, "8UC1"))
                     self.first_rolling = False
                 else:
                     for roi in self.rois:
