@@ -26,6 +26,7 @@ class Logger:
 
     def command_cb(self, data):
         self.command = data.data
+        now = datetime.now()
         delta = now.strftime("%H:%M:%S.%f")[:-4]
         row = {"time":str(delta),
                 "command":self.command}
