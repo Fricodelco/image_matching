@@ -7,6 +7,7 @@
   <node pkg="image_processing" type="logger.py" name="logger" output="screen"/>
   <node pkg="image_processing" type="photo_publisher.py" name="photo_publisher" output="screen"/>
   <node pkg="image_processing" type="test_client.py" name="action_client" output="screen"/>
+  <node pkg="image_processing" type="command_logger.py" name="command_logger" output="screen"/>
   <include file="$(find coparos)/launch/communicator.launch" >
     <arg name="node_start_delay" value="7.0"/>
   </include> 
