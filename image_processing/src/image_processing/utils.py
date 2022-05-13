@@ -86,7 +86,7 @@ def isConvex(points, shape, angle_restriction_homography, low_scale_restriction_
         curr = CrossProduct(temp)
         if (curr != 0):
             if (curr * prev < 0):
-                return False
+                return False, "answer is not convex"
             else:
                 prev = curr
     dist1 = calculate_euqlidian_dist(p[0], p[1])
@@ -94,8 +94,20 @@ def isConvex(points, shape, angle_restriction_homography, low_scale_restriction_
     # print(shape[0]/dist1, shape[1]/dist2)
     ls = low_scale_restriction_homography
     hs = high_scale_restriction_homography
-    if shape[0]/dist1 < ls or shape[1]/dist2 < ls or shape[0]/dist1 > hs or shape[1]/dist2 > hs:
-        return False
+    if shape[0]/dist1 < ls:
+        answer = "shape not fit, shape[0]/dist1: " + str(shape[0]/dist1) + " ls: " + str(ls) 
+        return False, answer
+    if shape[1]/dist2 < ls: 
+        answer = "shape not fit, shape[1]/dist2: " + str(shape[1]/dist2) + " ls: " + str(ls) 
+        return False, answer
+    if shape[0]/dist1 > hs:
+        answer = "shape not fit, shape[0]/dist1: " + str(shape[0]/dist1) + " hs: " + str(hs) 
+        return False, answer
+    if shape[1]/dist2 > hs:
+        answer = "shape not fit, shape[1]/dist2: " + str(shape[1]/dist2) + " hs: " + str(ls) 
+        return False, answer
+
+        
     # print(shape, dist1, dist2)
     angle_1 = angle(p[0], p[1], p[2])
     angle_2 = angle(p[1], p[2], p[3])
@@ -105,16 +117,20 @@ def isConvex(points, shape, angle_restriction_homography, low_scale_restriction_
     # print(abs(angle_1 - np.pi/2), abs(angle_2 - np.pi/2), abs(angle_3 - np.pi/2), abs(angle_4 - np.pi/2))
     delta = angle_restriction_homography
     if abs(angle_1 - np.pi/2) > delta:
-        return False
+        answer = "angle not fit, angle_1 delta: " + str(angle_1 - np.pi/2) 
+        return False, answer
     if abs(angle_2 - np.pi/2) > delta:
-        return False
+        answer = "angle not fit, angle_2 delta: " + str(angle_2 - np.pi/2)
+        return False, answer
     if abs(angle_3 - np.pi/2) > delta:
-        return False
+        answer = "angle not fit, angle_3 delta: " + str(angle_3 - np.pi/2)
+        return False, answer
     if abs(angle_4 - np.pi/2) > delta:
-        return False
+        answer = "angle not fit, angle_4 delta: " + str(angle_4 - np.pi/2)
+        return False, answer
     
     # print(shape[0]/dist1, shape[1]/dist2)
-    return True
+    return True, "transform is good"
 
 def angle(A, B, C, /):
     Ax, Ay = A[0]-B[0], A[1]-B[1]

@@ -229,7 +229,7 @@ class match_finder():
         pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
         pts_vis = [[0,0],[0,h-1],[w-1,h-1],[w-1,0]]
         dst = cv2.perspectiveTransform(pts,M)
-        isConv = isConvex(dst, img1.shape, self.angle_restriction_homography,
+        isConv, answer = isConvex(dst, img1.shape, self.angle_restriction_homography,
                 self.low_scale_restriction_homography, self.high_scale_restriction_homography) 
         if isConv is True:
             roll, pitch, yaw = self.get_angles_from_homography(M)
@@ -238,9 +238,9 @@ class match_finder():
             # img3 = copy.deepcopy(img2)
             # img2 = cv2.circle(img2, (int(x_center), int(y_center)), 10, 255, 5)
             # img2 = cv2.polylines(img2,[np.int32(dst)],True,255,3, cv2.LINE_AA)
-            return x_center, y_center, roll, pitch, yaw, M, img2
+            return x_center, y_center, roll, pitch, yaw, M, img2, answer
         else:
-            return None, None, None, None, None, None, None
+            return None, None, None, None, None, None, None, answer
     
     def solve_IK(self, x_center, y_center, height, roll, pitch, yaw, roi, map_):
         delta_pitch_pixels = -1*height*np.sin(pitch+self.camera_pitch_angle)/float(roi.pixel_size)

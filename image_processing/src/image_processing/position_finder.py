@@ -246,14 +246,15 @@ class PositionFinder:
         
         if self.publish_keypoints_matches_img is True:
             self.pub_keypoints_image.publish(self.bridge.cv2_to_imgmsg(img_for_pub, "rgb8"))
-        
+        answer = "transform exception"
         if(len(good)>10):
             try:
-                x_center, y_center, roll, pitch, yaw, M, img_tf = self.matcher.find_keypoints_transform(good, roi, cadr)
+                x_center, y_center, roll, pitch, yaw, M, img_tf, answer = self.matcher.find_keypoints_transform(good, roi, cadr)
             except Exception as e:
                 x_center = None
                 self.logger.error(e)
         else:
+            answer = "not enough keypoints to transform"
             self.logger.info("could not find transform")
             x_center = None
         #show coordinates
@@ -314,7 +315,12 @@ class PositionFinder:
                     self.pub_pose_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))    
             else:
                 self.logger.info("low pass position")
-                return False
+        print("count of good: "+str(len(good))+
+        " roi: "+str(len(roi.kp))+
+        " cadr: "+str(len(cadr.kp))+' from privyazka: '+str(self.pose_from_privyazka))
+        print(answer)
+        self.log_keypoints(len(good), len(roi.kp), len(cadr.kp), self.pose_from_privyazka, answer)
+        
         #send poses
         if self.publish_calculated_pose_img is True:
             self.pub_pose_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))    
@@ -503,6 +509,7 @@ class PositionFinder:
         return logger
 
     def log_state(self):
+        self.logger.info("     /////ITERATION/////     ")
         self.logger.info("first_cadr: "+str(self.first_cadr)+
         " lat_gps: "+str(self.lat_gps)+
         " lon_gps: "+str(self.lon_gps)+
@@ -511,6 +518,12 @@ class PositionFinder:
         " wind_mes_flag: "+str(self.wind_mes_flag)+
         " height: "+str(self.height)) 
 
+    def log_keypoints(self, good, kp_roi, kp_cadr, pose_from_privyazka, answer):
+        self.logger.info("count of good: "+str(good)+
+        " roi: "+str(kp_roi)+
+        " cadr: "+str(kp_cadr)+" pose from link: "+str(pose_from_privyazka))
+        self.logger.info(answer)
+        
     def get_realtime(self):
         realtime = None
         while(realtime is None):
