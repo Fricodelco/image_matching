@@ -198,17 +198,17 @@ class match_finder():
     def find_kp_dp(self, img):
         clahe = cv2.createCLAHE(clipLimit=30.0, tileGridSize=(8,8))
         # clahe = cv2.createCLAHE(clipLimit=20.0, tileGridSize=(4,4))
-        # img = clahe.apply(img)
-        # surf = cv2.xfeatures2d.SIFT_create(nfeatures = 0,
-        #     nOctaveLayers = self.nOctaveLayers,
-        #     contrastThreshold = self.contrastThreshold,
-        #     edgeThreshold = self.edgeThreshold,
-        #     sigma = self.sigma)
-        surf = cv2.xfeatures2d.SURF_create(hessianThreshold = 300,
-                                    nOctaves = 20,
-                                    nOctaveLayers = 5,
-                                    extended = True,
-                                    upright = False)
+        img = clahe.apply(img)
+        surf = cv2.xfeatures2d.SIFT_create(nfeatures = 0,
+            nOctaveLayers = self.nOctaveLayers,
+            contrastThreshold = self.contrastThreshold,
+            edgeThreshold = self.edgeThreshold,
+            sigma = self.sigma)
+        # surf = cv2.xfeatures2d.SURF_create(hessianThreshold = 300,
+        #                             nOctaves = 20,
+        #                             nOctaveLayers = 5,
+        #                             extended = True,
+        #                             upright = False)
         
         keypoints_1, descriptors_1 = surf.detectAndCompute(img, None)
         return keypoints_1, descriptors_1, img

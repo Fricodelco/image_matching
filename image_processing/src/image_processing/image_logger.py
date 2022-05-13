@@ -31,7 +31,7 @@ class Image_Logger:
         now = datetime.now()
         now = now.strftime("%d:%m:%Y,%H:%M")
         self.data_path = home+'/copa5/video/'
-        self._name = self.data_path+'created_video_'+str(now)+'.mp4'
+        self._name = self.data_path+'created_video_'+str(now)+'.mkv'
         self._fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         # self._fourcc = cv2.VideoWriter_fourcc(*'MP4V')
         # self._fourcc = cv2.VideoWriter_fourcc(*'DIVX')
@@ -80,7 +80,7 @@ class Image_Logger:
 if __name__ == '__main__':
     rospy.init_node('logger')
     logger = Image_Logger()
-    if logger.realtime == True:
+    if logger.realtime == False:
         rospy.spin()
         logger._out.release()
         sys.stdout.write('image logger dead\n')
