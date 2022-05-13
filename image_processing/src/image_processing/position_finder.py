@@ -377,9 +377,9 @@ class PositionFinder:
         speed = np.sqrt(mean_x**2 + mean_y**2)
         alpha = np.arctan2(mean_y, mean_x)
         answer.speed = speed
-        answer.angle = alpha
-        self.wind_velocities_x = np.empty(1)
+        answer.angle = (alpha*180)/np.pi
         self.wind_velocities_y = np.empty(1)
+        self.wind_velocities_x = np.empty(1)
         self.wind_server.set_succeeded(answer)
 
     def find_wind_speed(self, cadr):
