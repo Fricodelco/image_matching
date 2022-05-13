@@ -5,13 +5,13 @@ import yaml
 import logging
 import sys
 def load_params():
-    try:
-        data_path = find_path_to_config()
-    except:
-        data_path = None
-    if data_path is None:
-        home = os.getenv("HOME")
-        data_path = home+'/copa5/config/config.yaml'
+    # try:
+    #     data_path = find_path_to_config()
+    # except:
+    #     data_path = None
+    # if data_path is None:
+    home = os.getenv("HOME")
+    data_path = home+'/copa5/config/config.yaml'
         # print("NO EXTEND PARAM FILE, USE DEFAULT")
     # else:
         # print("USE EXTEND PARAM FILE", data_path)

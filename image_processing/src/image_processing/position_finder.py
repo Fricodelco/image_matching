@@ -444,16 +444,16 @@ class PositionFinder:
         self.pub_latlon.publish(latlon_msg)
         
     def imu_cb(self, data):
-        # quat = [0,0,0,0]
-        # quat[0] = data.orientation.x
-        # quat[1] = data.orientation.y
-        # quat[2] = data.orientation.z
-        # quat[3] = data.orientation.w
-        # self.imu_roll, self.imu_pitch, self.imu_yaw = tf.transformations.euler_from_quaternion(quat)
+        quat = [0,0,0,0]
+        quat[0] = data.orientation.x
+        quat[1] = data.orientation.y
+        quat[2] = data.orientation.z
+        quat[3] = data.orientation.w
+        self.imu_roll, self.imu_pitch, self.imu_yaw = tf.transformations.euler_from_quaternion(quat)
 
-        self.roll = data.angular_velocity.y/180.0*np.pi
-        self.pitch = data.angular_velocity.x/180.0*np.pi
-        self.yaw = data.angular_velocity.z/180.0*np.pi
+        # self.roll = data.angular_velocity.y/180.0*np.pi
+        # self.pitch = data.angular_velocity.x/180.0*np.pi
+        # self.yaw = data.angular_velocity.z/180.0*np.pi
 
 
     def gps_cb(self, data):

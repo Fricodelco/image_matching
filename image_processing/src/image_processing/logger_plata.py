@@ -77,18 +77,18 @@ class Logger:
             # self.rows.append(row)
             
     def imu_cb(self, data):
-        # quat = [0,0,0,0]
-        # quat[0] = data.orientation.x
-        # quat[1] = data.orientation.y
-        # quat[2] = data.orientation.z
-        # quat[3] = data.orientation.w
-        # self.roll, self.pitch, self.yaw = tf.transformations.euler_from_quaternion(quat)
-        # self.roll = (self.roll*180)/np.pi
-        # self.pitch = (self.pitch*180)/np.pi
-        # self.yaw = (self.yaw*180)/np.pi
-        self.roll = data.angular_velocity.y
-        self.pitch = data.angular_velocity.x
-        self.yaw = data.angular_velocity.z
+        quat = [0,0,0,0]
+        quat[0] = data.orientation.x
+        quat[1] = data.orientation.y
+        quat[2] = data.orientation.z
+        quat[3] = data.orientation.w
+        self.roll, self.pitch, self.yaw = tf.transformations.euler_from_quaternion(quat)
+        self.roll = (self.roll*180)/np.pi
+        self.pitch = (self.pitch*180)/np.pi
+        self.yaw = (self.yaw*180)/np.pi
+        # self.roll = data.angular_velocity.y
+        # self.pitch = data.angular_velocity.x
+        # self.yaw = data.angular_velocity.z
 
 
     def save_data(self, row):
