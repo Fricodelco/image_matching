@@ -17,7 +17,7 @@ class CsvRosHendler():
         self.csv_file_path = csv_file_path
         self.imu_publisher = rospy.Publisher('/imu', Imu, queue_size=10)
         self.gps_publisher = rospy.Publisher('/gps', NavSatFix, queue_size=10)
-        self.baro_publisher = rospy.Publisher('/baro', Float64, queue_size=10)
+        self.baro_publisher = rospy.Publisher('/baro_relative', Float64, queue_size=10)
         self.str_publisher = rospy.Publisher('/csv_time', String, queue_size=10)
         self.drone_info_publisher = rospy.Publisher('/droneInfo', DroneInfo, queue_size=10)
         self.__parse_csv_data()

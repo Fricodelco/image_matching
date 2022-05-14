@@ -105,7 +105,7 @@ class PositionFinder:
         # if self.use_gps is True:
         self.sub_gps = rospy.Subscriber("gps", NavSatFix, self.gps_cb)
         if self.use_baro is True:
-            self.sub_baro = rospy.Subscriber("baro", Float64, self.baro_cb)
+            self.sub_baro = rospy.Subscriber("baro_relative", Float64, self.baro_cb)
             self.height_init = False
         else:
             self.height_init = True
@@ -486,7 +486,10 @@ class PositionFinder:
             self.height_init = True
             if self.realtime == True:
                 self.start_height = data.data
-        self.height = data.data - self.start_height
+        if self.realtime == True:
+            self.height = data.data
+        else:
+            self.height = data.data - self.start_height
     
     def create_logger(self):
         home = os.getenv("HOME")
