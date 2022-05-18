@@ -23,6 +23,7 @@ from datetime import datetime
 import os
 import yaml
 import sys
+from copa_msgs.msg import ImageImu
 class Image_Logger:
     def __init__(self):
         self.realtime = self.get_realtime()
@@ -40,15 +41,15 @@ class Image_Logger:
         # self._fourcc = cv2.VideoWriter_fourcc(*'XVID')
         # self._out = cv2.VideoWriter(self._name, self._fourcc, 5.0, (1920, 1080), 0)
         self.first_msg = True
-        self.sub_video = rospy.Subscriber('/photo', Image, self.image_cb, queue_size = 1)
+        self.sub_video = rospy.Subscriber('/photo', ImageImu, self.image_cb, queue_size = 1)
         self.bridge = CvBridge()
         
     def image_cb(self, data):
         try:
-            img = self.bridge.imgmsg_to_cv2(data,'bgr8')
+            img = self.bridge.imgmsg_to_cv2(data.img,'bgr8')
             video_gray = False
         except:
-            img = self.bridge.imgmsg_to_cv2(data,'8UC1')
+            img = self.bridge.imgmsg_to_cv2(data.img,'8UC1')
             video_gray = True
         if self.first_msg is True:
             if video_gray is True:

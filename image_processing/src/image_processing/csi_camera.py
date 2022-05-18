@@ -4,8 +4,8 @@ import rospy
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image, CompressedImage
 from time import time
-
-  
+from copa_msgs.msg import ImageImu
+from sensor_msgs.msg import Imu
 # define a video capture object
 # pipeline = 'nvarguscamerasrc !  video/x-raw(memory:NVMM), width=1920, height=1080, format=NV12, framerate=30/1 ! nvvidconv flip-method=0 ! video/x-raw, width=1920, height=1080, format=BGRx ! videoconvert ! video/x-raw, format=BGR ! appsink'
 # pipeline = 'nvarguscamerasrc !  video/x-raw(memory:NVMM), width=1920, height=1080, format=NV12, framerate=30/1 ! nvvidconv flip-method=0 ! video/x-raw, width=1920, height=1080, format=I420 ! videoconvert h! video/x-raw, format=BGR ! appsink'
@@ -86,9 +86,14 @@ class PhotoPublisher:
             return None
 
         self.video_capture = cv2.VideoCapture(gstreamer_pipeline(flip_method=2, framerate=10), cv2.CAP_GSTREAMER)
-        self.pub_image = rospy.Publisher('/photo', Image, queue_size=1)
+        self.imu_msg = Imu()
+        self.sub_imu = rospy.Subscriber("imu", Imu, self.imu_cb)
+        self.pub_image = rospy.Publisher('/photo', ImageImu, queue_size=1)
         self.bridge = CvBridge()
         self.iterator = 0
+
+    def imu_cb(self,data):
+        self.imu_msg = data
 
     def get_realtime(self):
         realtime = None
@@ -104,7 +109,12 @@ class PhotoPublisher:
     def video_publisher(self):
         try:
             ret_val, frame = self.video_capture.read()
-            self.pub_image.publish(self.bridge.cv2_to_imgmsg(frame, "bgr8"))
+            msg_img = Image()
+            msg_img = self.bridge.cv2_to_imgmsg(frame, "bgr8")
+            msg_img_imu = ImageImu()
+            msg_img_imu.img = msg_img
+            msg_img_imu.imu = self.imu_msg
+            self.pub_image.publish(msg_img_imu)
             self.iterator = 0
             return True
         except Exception as e:

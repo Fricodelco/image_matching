@@ -25,6 +25,8 @@ from copa_msgs.msg import WindSpeedAction, WindSpeedResult, WindSpeedFeedback
 from datetime import datetime
 import logging
 import sys
+from copa_msgs.msg import ImageImu
+
 
 class PositionFinder:
     def __init__(self):
@@ -100,16 +102,13 @@ class PositionFinder:
         self.wind_measure_time = rospy.get_param("wind_measure_time")
 
         #ros infrustructure
-        if self.use_imu is True:
-            self.sub_imu = rospy.Subscriber("imu", Imu, self.imu_cb)
-        # if self.use_gps is True:
         self.sub_gps = rospy.Subscriber("gps", NavSatFix, self.gps_cb)
         if self.use_baro is True:
             self.sub_baro = rospy.Subscriber("baro_relative", Float64, self.baro_cb)
             self.height_init = False
         else:
             self.height_init = True
-        self.sub_photo = rospy.Subscriber("photo",Image, self.photo_cb, queue_size=1)
+        self.sub_photo = rospy.Subscriber("photo", ImageImu, self.photo_cb, queue_size=1)
         self.bridge = CvBridge()
         if self.publish_tf_img is True:
             self.pub_image = rospy.Publisher('/find_transform', Image, queue_size=1)
@@ -139,10 +138,11 @@ class PositionFinder:
             self.log_state()
             if (self.use_baro is True and self.height_init is True) or self.use_baro is False:
                 start_time = time()
+                self.imu_cb(data.imu)
                 if self.realtime == False:
-                    image = self.bridge.imgmsg_to_cv2(data, "8UC1")
+                    image = self.bridge.imgmsg_to_cv2(data.img, "8UC1")
                 else:
-                    image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+                    image = self.bridge.imgmsg_to_cv2(data.img, "bgr8")
                     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
                 cadr = image_processing(img = image)
                 cadr.find_pixel_size_by_height(self.height, self.poi)

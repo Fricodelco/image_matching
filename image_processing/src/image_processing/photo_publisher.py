@@ -10,7 +10,8 @@ from time import time
 import os
 import threading
 import yaml
-
+from copa_msgs.msg import ImageImu
+from sensor_msgs.msg import Imu
 
 class PhotoPublisher:
     def __init__(self, photo):
@@ -59,9 +60,15 @@ class PhotoPublisher:
             fps = int(self.cap.get(cv2.CAP_PROP_FPS))
             self.rate = fps
             self.iterator = 0
-        self.pub_image = rospy.Publisher('/photo', Image, queue_size=1)
+        self.pub_image = rospy.Publisher('/photo', ImageImu, queue_size=1)
+        self.pub_image_rqt = rospy.Publisher('/photo_for_rqt', Image, queue_size=1)
+        self.imu_msg = Imu()
+        self.sub_imu = rospy.Subscriber("imu", Imu, self.imu_cb)
         self.bridge = CvBridge()
         self.iterator = 0
+
+    def imu_cb(self, data):
+        self.imu_msg = data
 
     def get_realtime(self):
         realtime = None
@@ -80,17 +87,23 @@ class PhotoPublisher:
             # self.pub_image.publish(self.bridge.cv2_to_imgmsg(image, "rgb"))
 
     def video_publisher(self):
-        try:
+        # try:
             ret, frame = self.cap.read()
             if self.iterator > self.rate/5:
                 # frame = frame[:,:,2]
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                self.pub_image.publish(self.bridge.cv2_to_imgmsg(frame, "8UC1"))
+                msg_img = Image()
+                msg_img = self.bridge.cv2_to_imgmsg(frame, "8UC1")
+                msg_img_imu = ImageImu()
+                msg_img_imu.img = msg_img
+                msg_img_imu.imu = self.imu_msg
+                self.pub_image.publish(msg_img_imu)
+                self.pub_image_rqt.publish(msg_img)
                 self.iterator = 0
             self.iterator+=1
             return True
-        except Exception as e:
-            return False
+        # except Exception as e:
+            # return False
         
     def load_params(self):
         home = os.getenv("HOME")
