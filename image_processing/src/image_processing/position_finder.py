@@ -150,7 +150,7 @@ class PositionFinder:
                 if self.wind_mes_flag == True:
                     cadr.find_kp_dp_scale(self.matcher)
                     self.find_wind_speed(cadr)
-                    print("cadr analize time wind speed: ", time() - start_time)
+                    # print("cadr analize time wind speed: ", time() - start_time)
                     self.logger.info("cadr analize time wind speed: "+str(time() - start_time))
                 #REGULAR LOCALIZATION
                 else:
@@ -169,7 +169,7 @@ class PositionFinder:
                     #find match
                     cadr.find_kp_dp_scale(self.matcher)
                     self.find_pose(cadr)
-                    print("cadr analize time: ", time() - start_time)
+                    # print("cadr analize time: ", time() - start_time)
                     self.logger.info("cadr analize time: " + str(time() - start_time))
             else:
                 print("HEIGHT NOT INTIALIZED")
@@ -203,7 +203,6 @@ class PositionFinder:
                         roi = self.matcher.create_roi_from_border(self.main_map, border)
                         if roi.img.shape[0] > 0 and roi.img.shape[1] > 0:
                             roi, cadr = self.matcher.rescale_for_optimal_sift(roi, cadr)
-                            print(roi.img.shape, cadr.img.shape)
                             roi.kp, roi.dp, roi.img = self.matcher.find_kp_dp(roi.img)        
                             if len(roi.kp) > 0:
                                 self.rois.append(roi)
@@ -331,7 +330,8 @@ class PositionFinder:
     
     def compare_cadrs(self, cadr, cadr_old):
         good, _ = self.matcher.find_matches(cadr, cadr_old)
-        x_center, y_center, roll, pitch, yaw_cadr, M, img = self.matcher.find_keypoints_transform(good, cadr, cadr_old)
+        x_center, y_center, roll, pitch, yaw_cadr, M, img, answer = self.matcher.find_keypoints_transform(good, cadr, cadr_old)
+
         if x_center is not None:
             if self.publish_between_img is True:
                 if img is not None:
@@ -342,7 +342,6 @@ class PositionFinder:
             y_trans = delta_y*np.cos(self.imu_yaw) - delta_x*np.sin(self.imu_yaw)
             delta_time = time() - self.time_between_cadrs
             self.time_between_cadrs = time()
-            # print(delta_time, yaw_cadr - np.pi/2)
             if delta_time < 2.0 and abs(yaw_cadr) < 1.0:
                 north_speed = y_trans/delta_time
                 east_speed = x_trans/delta_time
@@ -390,7 +389,7 @@ class PositionFinder:
             self.wind_time = time()
             return None, None
         good, _ = self.matcher.find_matches(cadr, self.main_cadr)
-        x_center, y_center, roll, pitch, yaw_cadr, M, img = self.matcher.find_keypoints_transform(good, cadr, self.main_cadr)
+        x_center, y_center, roll, pitch, yaw_cadr, M, img, answer = self.matcher.find_keypoints_transform(good, cadr, self.main_cadr)
         if x_center is None:
             self.main_cadr = cadr
             self.time_between_cadrs = time()
