@@ -3,7 +3,7 @@
   <node pkg="image_processing" type="position_finder.py" name="position_finder" output="screen"/>
   <!-- <node pkg="csv_data_pkg" type="filter_gps.py" name="gps_filter" output="screen"/> -->
   <node pkg="image_processing" type="image_logger.py" name="image_logger" output="screen"/>
-  <!-- <node pkg="image_processing" type="simple_kalman.py" name="simple_kalman_node" output="screen"/> -->
+  <node pkg="image_processing" type="simple_kalman.py" name="simple_kalman_node" output="screen"/>
   <!-- <node pkg="image_processing" type="plata_logger_for_analize.py" name="plata_logger_for_analize" output="screen"/> -->
   <node pkg="image_processing" type="logger.py" name="logger" output="screen"/>
   <node pkg="image_processing" type="photo_publisher.py" name="photo_publisher" output="screen"/>

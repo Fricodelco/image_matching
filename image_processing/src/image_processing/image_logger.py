@@ -11,7 +11,8 @@ from match_finder import match_finder
 from time import time
 from sensor_msgs.msg import Image, CompressedImage, NavSatFix, Imu 
 from nav_msgs.msg import Odometry
-from std_msgs.msg import String, Bool
+from std_msgs.msg import String, Bool, Float64
+from coparos.msg import DroneInfo
 from cv_bridge import CvBridge
 import copy
 from utils import resize_img, draw_circle_on_map_by_coord_and_angles
@@ -24,6 +25,7 @@ import os
 import yaml
 import sys
 from copa_msgs.msg import ImageImu
+
 class Image_Logger:
     def __init__(self):
         self.realtime = self.get_realtime()

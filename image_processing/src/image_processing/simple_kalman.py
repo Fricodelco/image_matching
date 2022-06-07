@@ -38,12 +38,13 @@ class SimpleKalman:
         
         #load params
         self.count_of_pictures_for_odometry = rospy.get_param("count_of_pictures_for_odometry")
-        
+        self.alpha = rospy.get_param("kalman_alpha")
+        self.beta = rospy.get_param("kalman_beta")
         #ros infrustructure
         self.sub_latlon = rospy.Subscriber('/coordinates_by_img', NavSatFix, self.img_coord_cb)
         self.sub_estimated_odom = rospy.Subscriber('/odom_by_img', Odometry, self.sub_odom)
         self.pub_latlon = rospy.Publisher('/filtered_gps', NavSatFix, queue_size=1)
-        self.timer = rospy.Timer(rospy.Duration(0.5), self.timer_callback)
+        self.timer = rospy.Timer(rospy.Duration(0.1), self.timer_callback)
 
     def timer_callback(self, data):
         if self.pose_init == True:
@@ -54,7 +55,7 @@ class SimpleKalman:
                 self.stab_vy = 0.0
                 self.first_filter = False
                 return
-            print("x: ", self.stab_x, self.pose_east_last)
+            # print("x: ", self.stab_x, self.pose_east_last)
             self.stab_vx = (1.0 - self.alpha)*self.stab_vx + self.alpha*(self.pose_east_last - self.stab_x)
             self.stab_x = self.beta*self.pose_east_last + (1.0 - self.beta)*(self.stab_x + self.stab_vx)
             self.stab_vy = (1.0 - self.alpha)*self.stab_vy + self.alpha*(self.pose_north_last - self.stab_y)
