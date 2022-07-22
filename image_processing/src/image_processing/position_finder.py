@@ -58,8 +58,13 @@ class PositionFinder:
         self.last_yaw = 0.0
         self.old_cadr = None
         self.time_between_cadrs = time()
+        self.time_between_link = time()
+        self.first_link = False
+        self.upscale_link = False
         self.x_meter = 0
         self.y_meter = 0
+        self.last_x_from_link = 0.0
+        self.last_y_from_link = 0.0        
         self.between_iter = 0
         self.filtered_lat = 0.0
         self.filtered_lon = 0.0
@@ -100,14 +105,20 @@ class PositionFinder:
         self.publish_tf_img = rospy.get_param("publish_tf_img")
         self.time_sleep_before_wind_measure = rospy.get_param("time_sleep_before_wind_measure")
         self.wind_measure_time = rospy.get_param("wind_measure_time")
-
+        self.link_window_upscale = rospy.get_param("link_window_upscale")
+        self.unlink_time_for_upscale = rospy.get_param("unlink_time_for_upscale")
         #ros infrustructure
         self.sub_gps = rospy.Subscriber("gps", NavSatFix, self.gps_cb)
-        if self.use_baro is True:
-            self.sub_baro = rospy.Subscriber("baro_relative", Float64, self.baro_cb)
-            self.height_init = False
+        #if gps is true use baro otherwise use static height
+        if self.use_gps is True:
+            if self.use_baro is True:
+                self.sub_baro = rospy.Subscriber("baro_relative", Float64, self.baro_cb)
+                self.height_init = False
+            else:
+                self.height_init = True
         else:
             self.height_init = True
+                
         self.sub_photo = rospy.Subscriber("photo", ImageImu, self.photo_cb, queue_size=1)
         self.bridge = CvBridge()
         if self.publish_tf_img is True:
@@ -150,7 +161,7 @@ class PositionFinder:
                 if self.wind_mes_flag == True:
                     cadr.find_kp_dp_scale(self.matcher)
                     self.find_wind_speed(cadr)
-                    print("cadr analize time wind speed: ", time() - start_time)
+                    # print("cadr analize time wind speed: ", time() - start_time)
                     self.logger.info("cadr analize time wind speed: "+str(time() - start_time))
                 #REGULAR LOCALIZATION
                 else:
@@ -168,8 +179,22 @@ class PositionFinder:
                         self.map_pixel_size = self.main_map.pixel_size
                     #find match
                     cadr.find_kp_dp_scale(self.matcher)
-                    self.find_pose(cadr)
-                    print("cadr analize time: ", time() - start_time)
+                    answer = self.find_pose(cadr)
+                    
+                    # upscale search window if link is lost for N seconds
+                    if answer is True and self.first_link is False:
+                        self.first_link = True
+                        self.time_between_link = time()
+                    if answer is True and self.first_link is True:
+                        self.time_between_link = time()
+                        self.upscale_link = False
+                    elif self.first_link is True:
+                        delta = time() - self.time_between_link
+                        if delta > self.unlink_time_for_upscale:
+                            self.upscale_link = True
+                            self.logger.info("SEARCH WINDOW UPSCALED")
+
+        
                     self.logger.info("cadr analize time: " + str(time() - start_time))
             else:
                 print("HEIGHT NOT INTIALIZED")
@@ -191,9 +216,10 @@ class PositionFinder:
                 else:
                     self.roi_iterator += 1
                 if self.roi_after_link.img.shape[0] != 0:
-                    self.pose_from_roi(self.roi_after_link, cadr)
+                    pose_enable = self.pose_from_roi(self.roi_after_link, cadr)
                     if self.publish_roi_img is True:
                         self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(self.roi_after_link.img, "8UC1"))
+                    return pose_enable
             else:
                 if self.first_rolling == True:
                     rolling_window_size_x = (float(cadr.pixel_size)/float(self.main_map.pixel_size))*cadr.img.shape[1]*self.search_scale_for_roi_by_rolling_window
@@ -203,33 +229,41 @@ class PositionFinder:
                         roi = self.matcher.create_roi_from_border(self.main_map, border)
                         if roi.img.shape[0] > 0 and roi.img.shape[1] > 0:
                             roi, cadr = self.matcher.rescale_for_optimal_sift(roi, cadr)
-                            print(roi.img.shape, cadr.img.shape)
                             roi.kp, roi.dp, roi.img = self.matcher.find_kp_dp(roi.img)        
                             if len(roi.kp) > 0:
                                 self.rois.append(roi)
+                                print("ROI: ",roi.pixel_x_main_map, roi.pixel_y_main_map)
                             if self.publish_roi_img is True:
                                 self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(roi.img, "8UC1"))
                     self.first_rolling = False
                 else:
+                    # print(len(self.rois))
                     for roi in self.rois:
-                        cadr = cadr
-                        pose = self.pose_from_roi(roi, cadr)
+                        # cadr = cadr
+                        pose_enable = self.pose_from_roi(roi, cadr)
                         if self.publish_roi_img is True:
                             self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(roi.img, "8UC1"))
-                        if pose == True:
-                            return True               
+                        if pose_enable is True:
+                            return pose_enable
+                    return False
         else:
             if self.roi_iterator > 10:
-                self.roi_after_link = self.matcher.roi_from_last_xy(self.main_map, float(self.x_meter), float(self.y_meter), cadr, self.search_scale_for_roi_by_detection, self.last_yaw)
+                if self.upscale_link is False:
+                    self.roi_after_link = self.matcher.roi_from_last_xy(self.main_map, float(self.x_meter), float(self.y_meter), cadr,
+                             self.search_scale_for_roi_by_detection, self.imu_yaw)
+                else:
+                    self.roi_after_link = self.matcher.roi_from_last_xy(self.main_map, float(self.x_meter), float(self.y_meter), cadr, 
+                            self.search_scale_for_roi_by_detection*self.link_window_upscale, self.imu_yaw)
                 self.roi_iterator = 0
                 self.roi_after_link, cadr = self.matcher.rescale_for_optimal_sift(self.roi_after_link, cadr)
                 self.roi_after_link.kp, self.roi_after_link.dp, self.roi_after_link.img = self.matcher.find_kp_dp(self.roi_after_link.img)        
             else:
                 self.roi_iterator += 1
-            self.pose_from_roi(self.roi_after_link, cadr)
+            pose_enable = self.pose_from_roi(self.roi_after_link, cadr)
             if self.publish_roi_img is True:
                 self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(self.roi_after_link.img, "8UC1"))
-        
+            return pose_enable
+
     def pose_from_roi(self, roi, cadr):
         good, img_for_pub = self.matcher.find_matches(roi, cadr)
         north_speed = 0
@@ -269,11 +303,11 @@ class PositionFinder:
 
             img = draw_circle_on_map_by_coord_and_angles(img,
                                         (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
-                                        (lat_mezh, lon_mezh), self.map_resized_pixel_size, (self.last_yaw), (255,0,255))
+                                        (lat_mezh, lon_mezh), self.map_resized_pixel_size, (self.imu_yaw), (255,0,255))
         
             img = draw_circle_on_map_by_coord_and_angles(img,
                                         (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
-                                        (self.filtered_lat, self.filtered_lon), self.map_resized_pixel_size, (self.last_yaw), (255,255,255))
+                                        (self.filtered_lat, self.filtered_lon), self.map_resized_pixel_size, (self.imu_yaw), (255,255,255))
             
         self.pose_from_privyazka = False
         
@@ -283,7 +317,7 @@ class PositionFinder:
             
             lat_zero, lon_zero,_ ,_ , x_meter, y_meter = self.matcher.solve_IK(x_center, y_center, self.height, 0, 0, yaw, roi, self.main_map)
             lat, lon, _, _, x_inc, y_inc = self.matcher.solve_IK(x_center, y_center, self.height,
-                                        self.imu_roll, self.imu_pitch, yaw, roi, self.main_map)
+                                        self.imu_roll, self.imu_pitch, self.imu_yaw, roi, self.main_map)
             
             self.last_yaw = yaw
             
@@ -297,27 +331,29 @@ class PositionFinder:
                 self.pose_from_privyazka = True
                 self.x_meter = float(x_inc)
                 self.y_meter = float(y_inc)
+                self.last_x_from_link = float(x_inc)
+                self.last_y_from_link = float(y_inc)
                 g_c = GeodeticConvert()
                 g_c.initialiseReference(self.main_map.main_points[0].lat, self.main_map.main_points[0].lon, 0)
                 lat, lon, _ = g_c.ned2Geodetic(north=float(-y_inc), east=float(x_inc), down=0)
                 self.logger.info("calculated lat: "+str(lat)+
                                 " calculated_lon: "+str(lon))
-                self.generate_and_send_pose(lat, lon, self.imu_roll, self.imu_pitch, self.last_yaw)
+                self.generate_and_send_pose(lat, lon, self.imu_roll, self.imu_pitch, self.imu_yaw)
                 if self.publish_calculated_pose_img is True:
                     img = draw_circle_on_map_by_coord_and_angles(img,
                                             (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
-                                            (lat, lon), self.map_resized_pixel_size, (yaw), (255,0,0))
+                                            (lat, lon), self.map_resized_pixel_size, (self.imu_yaw), (255,0,0))
                 
                     img = draw_circle_on_map_by_coord_and_angles(img,
                                             (self.main_map.main_points[0].lat, self.main_map.main_points[0].lon),
-                                            (lat_zero, lon_zero), self.map_resized_pixel_size, (yaw), (0,255,0))
+                                            (lat_zero, lon_zero), self.map_resized_pixel_size, (self.imu_yaw), (0,255,0))
                     # img = img[int(img.shape[0]*0.2):int(img.shape[0]*0.8), int(img.shape[1]*0.2):int(img.shape[1]*0.8)]
                     self.pub_pose_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))    
             else:
                 self.logger.info("low pass position")
         print("count of good: "+str(len(good))+
         " roi: "+str(len(roi.kp))+
-        " cadr: "+str(len(cadr.kp))+' from privyazka: '+str(self.pose_from_privyazka))
+        " cadr: "+str(len(cadr.kp))+' from privyazka: '+str(self.pose_from_privyazka)+" height: "+str(self.height))
         print(answer)
         self.log_keypoints(len(good), len(roi.kp), len(cadr.kp), self.pose_from_privyazka, answer)
         
@@ -331,7 +367,8 @@ class PositionFinder:
     
     def compare_cadrs(self, cadr, cadr_old):
         good, _ = self.matcher.find_matches(cadr, cadr_old)
-        x_center, y_center, roll, pitch, yaw_cadr, M, img = self.matcher.find_keypoints_transform(good, cadr, cadr_old)
+        x_center, y_center, roll, pitch, yaw_cadr, M, img, answer = self.matcher.find_keypoints_transform(good, cadr, cadr_old)
+
         if x_center is not None:
             if self.publish_between_img is True:
                 if img is not None:
@@ -342,7 +379,6 @@ class PositionFinder:
             y_trans = delta_y*np.cos(self.imu_yaw) - delta_x*np.sin(self.imu_yaw)
             delta_time = time() - self.time_between_cadrs
             self.time_between_cadrs = time()
-            # print(delta_time, yaw_cadr - np.pi/2)
             if delta_time < 2.0 and abs(yaw_cadr) < 1.0:
                 north_speed = y_trans/delta_time
                 east_speed = x_trans/delta_time
@@ -390,7 +426,7 @@ class PositionFinder:
             self.wind_time = time()
             return None, None
         good, _ = self.matcher.find_matches(cadr, self.main_cadr)
-        x_center, y_center, roll, pitch, yaw_cadr, M, img = self.matcher.find_keypoints_transform(good, cadr, self.main_cadr)
+        x_center, y_center, roll, pitch, yaw_cadr, M, img, answer = self.matcher.find_keypoints_transform(good, cadr, self.main_cadr)
         if x_center is None:
             self.main_cadr = cadr
             self.time_between_cadrs = time()
@@ -417,7 +453,7 @@ class PositionFinder:
         msg.twist.twist.linear.x = east_speed
         msg.twist.twist.linear.y = north_speed
         msg.twist.twist.angular.z = yaw_speed
-        odom_quat = tf.transformations.quaternion_from_euler(self.imu_roll, self.imu_pitch, self.last_yaw)
+        odom_quat = tf.transformations.quaternion_from_euler(self.imu_roll, self.imu_pitch, self.imu_yaw)
         msg.pose.pose.orientation.x = odom_quat[0]
         msg.pose.pose.orientation.y = odom_quat[1]
         msg.pose.pose.orientation.z = odom_quat[2]
@@ -456,7 +492,7 @@ class PositionFinder:
         quat[2] = data.orientation.z
         quat[3] = data.orientation.w
         self.imu_roll, self.imu_pitch, self.imu_yaw = tf.transformations.euler_from_quaternion(quat)
-
+        print("angles: ",self.imu_roll, self.imu_pitch, self.imu_yaw)
         # self.roll = data.angular_velocity.y/180.0*np.pi
         # self.pitch = data.angular_velocity.x/180.0*np.pi
         # self.yaw = data.angular_velocity.z/180.0*np.pi
@@ -484,7 +520,7 @@ class PositionFinder:
     def baro_cb(self, data):
         if self.height_init == False:
             self.height_init = True
-            if self.realtime == True:
+            if self.realtime == False:
                 self.start_height = data.data
         if self.realtime == True:
             self.height = data.data

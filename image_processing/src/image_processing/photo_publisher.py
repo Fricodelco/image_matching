@@ -22,6 +22,7 @@ class PhotoPublisher:
             return None
         name = rospy.get_param("video_name")
         home = os.getenv("HOME")
+        self.rate_multi = rospy.get_param("rate_multiplier")
         self.data_path = home+'/copa5/video/'+name
         if photo is True:
             self.timer = rospy.Timer(rospy.Duration(0.1), self.timer_callback)
@@ -58,7 +59,7 @@ class PhotoPublisher:
             # self.cap.set(cv2.CAP_GSTREAMER)
             # self.cap = cv2.VideoCapture('filesrc location=/home/jetson/copa5/video/001-acl-2222.mp4 ! qtdemux ! queue ! h264parse ! omxh264dec ! nvvidconv ! video/x-raw,format=BGRx ! queue ! videoconvert ! queue ! video/x-raw, format=BGR ! appsink', cv2.CAP_GSTREAMER)
             fps = int(self.cap.get(cv2.CAP_PROP_FPS))
-            self.rate = fps
+            self.rate = fps*self.rate_multi
             self.iterator = 0
         self.pub_image = rospy.Publisher('/photo', ImageImu, queue_size=1)
         self.pub_image_rqt = rospy.Publisher('/photo_for_rqt', Image, queue_size=1)
@@ -126,14 +127,13 @@ if __name__ == '__main__':
         file_exists = os.path.exists(path+'.csv')
         try:
             if file_exists is True:
-                csvRosHandler = CsvRosHendler(path+'.csv')
+                csvRosHandler = CsvRosHendler(path+'.csv', photo_publisher.rate_multi)
                 thread = threading.Thread(target=csvRosHandler.start_publihs_gps_imu, daemon=True)
                 thread.start()
             else:
                 print("NO CSV FILE")
-        except:
-            a=1
-            # print("NO CSV FILE")
+        except Exception as e:
+            print("CSV FILE BROKEN: ", e)
         # rospack = rospkg.RosPack()
         # pkg_path = rospack.get_path('csv_data_pkg')
         # csvRosHandler = CsvRosHendler(os.path.join(pkg_path, 'data', '003-acl_222.csv'))

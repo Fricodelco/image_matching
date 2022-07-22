@@ -10,8 +10,9 @@ from std_msgs.msg import Float64, String
 from coparos.msg import DroneInfo
 
 class CsvRosHendler():
-    def __init__(self, csv_file_path: str) -> None:
+    def __init__(self, csv_file_path, rate_multi: str) -> None:
         #ros
+        self.rate_multi = rate_multi
         self.csv_data = []
         self.time_stamps = []
         self.csv_file_path = csv_file_path
@@ -40,7 +41,7 @@ class CsvRosHendler():
     def start_publihs_gps_imu(self)->None:
         for i, data in enumerate(self.csv_data):
             if i !=0:
-                rospy.sleep(data[0]-self.csv_data[i-1][0])
+                rospy.sleep((data[0]-self.csv_data[i-1][0])/self.rate_multi)
             self.publish_gps_imu_data(i)
             if rospy.is_shutdown():
                 break
