@@ -6,6 +6,9 @@ from sensor_msgs.msg import Image, CompressedImage
 from time import time
 from copa_msgs.msg import ImageImu
 from sensor_msgs.msg import Imu
+import os
+from datetime import datetime
+import logging
 # define a video capture object
 # pipeline = 'nvarguscamerasrc !  video/x-raw(memory:NVMM), width=1920, height=1080, format=NV12, framerate=30/1 ! nvvidconv flip-method=0 ! video/x-raw, width=1920, height=1080, format=BGRx ! videoconvert ! video/x-raw, format=BGR ! appsink'
 # pipeline = 'nvarguscamerasrc !  video/x-raw(memory:NVMM), width=1920, height=1080, format=NV12, framerate=30/1 ! nvvidconv flip-method=0 ! video/x-raw, width=1920, height=1080, format=I420 ! videoconvert h! video/x-raw, format=BGR ! appsink'
@@ -84,15 +87,35 @@ class PhotoPublisher:
         if enable is False:
             self.done = None            
             return None
-
-        self.video_capture = cv2.VideoCapture(gstreamer_pipeline(flip_method=2, framerate=10), cv2.CAP_GSTREAMER)
+        self.logger = self.create_logger()
+        self.logger.info("initializing pipeline...")
+        self.video_capture = None
+        pipeline = gstreamer_pipeline(flip_method=2, framerate=10)
+        self.logger.info("used pipeline: "+str(pipeline))
+        enabled = False
+        while enabled == False:
+            rospy.sleep(1)
+            enabled = self.init_pipeline(pipeline)
+            
+            
+        self.init_pipeline(pipeline)
         self.imu_msg = Imu()
         self.sub_imu = rospy.Subscriber("imu", Imu, self.imu_cb)
         self.pub_image = rospy.Publisher('/photo', ImageImu, queue_size=1)
         self.bridge = CvBridge()
         self.iterator = 0
 
+    def init_pipeline(self, pipeline):
+        try:
+            self.video_capture = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
+            self.logger.info("pipeline initialized!")
+            return self.video_capture.isOpened()
+        except Exception as e:
+            self.logger.info("PIPELINE INIT ERROR: " + str(e))
+            return False
+
     def imu_cb(self,data):
+        self.logger.info("get imu!")
         self.imu_msg = data
 
     def get_realtime(self):
@@ -109,6 +132,7 @@ class PhotoPublisher:
     def video_publisher(self):
         try:
             ret_val, frame = self.video_capture.read()
+            self.logger.info("succesfully read image")
             msg_img = Image()
             msg_img = self.bridge.cv2_to_imgmsg(frame, "bgr8")
             msg_img_imu = ImageImu()
@@ -118,8 +142,27 @@ class PhotoPublisher:
             self.iterator = 0
             return True
         except Exception as e:
-            rospy.loginfo(e)
+            self.logger.error("ERROR: "+str(e))
+            rospy.logerr(e)
             return False
+    
+    def create_logger(self):
+        home = os.getenv("HOME")
+        now = datetime.now()
+        now = now.strftime("%d:%m:%Y,%H:%M")
+        logname = home+'/copa5/logs/csi_camera_'+str(now)+'.log'
+        logging.basicConfig(filename=logname,
+                                filemode='w',
+                                format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                                datefmt='%H:%M:%S',
+                                level=logging.DEBUG,
+                                force=True)
+        logger = logging.getLogger('photo_publisher')
+        logger.setLevel(logging.DEBUG)
+        fh = logging.FileHandler(logname)
+        fh.setLevel(logging.DEBUG)
+        fh.setFormatter(logging.Formatter(fmt='POSFINDER:[%(asctime)s: %(levelname)s] %(message)s'))
+        return logger
 
 if __name__ == '__main__':
     rospy.init_node('photo_publisher')
@@ -133,6 +176,8 @@ if __name__ == '__main__':
         while not rospy.is_shutdown():
             answer = photo_publisher.video_publisher()
             if answer == False:
-                break
+                rospy.sleep(1)
+                pipeline = gstreamer_pipeline(flip_method=2, framerate=10)
+                photo_publisher.init_pipeline(pipeline)
             rate.sleep()
         rospy.loginfo("VIDEO ENDED")
