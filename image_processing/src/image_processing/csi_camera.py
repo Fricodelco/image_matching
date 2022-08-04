@@ -21,16 +21,17 @@ def gstreamer_pipeline(
     capture_height=1080,
     display_width=1920,
     display_height=1080,
-    framerate=30,
-    flip_method=0,
+    framerate=10,
+    flip_method=2,
 ):
     return (
-        "nvarguscamerasrc sensor-id=%d !"
+        # "nvarguscamerasrc sensor-id=%d wbmode=0 gainrange='0 16' ispdigitalgainrange='0 16' exposuretimerange='5000000 5000000' aelock=true !"
+        "nvarguscamerasrc sensor-id=%d tnr-mode='1' tnr-strength='1' wbmode='5'scene-mode='3' exposuretimerange='10000000 10000000' aelock=true !"
         "video/x-raw(memory:NVMM), width=(int)%d, height=(int)%d, framerate=(fraction)%d/1 ! "
         "nvvidconv flip-method=%d ! "
         "video/x-raw, width=(int)%d, height=(int)%d, format=(string)BGRx ! "
         "videoconvert ! "
-        "video/x-raw, format=(string)BGR ! appsink"
+        "video/x-raw, format=(string)BGR ! appsink "
         % (
             sensor_id,
             capture_width,
@@ -81,8 +82,8 @@ def gstreamer_pipeline(
 
 class PhotoPublisher:
     def __init__(self):
-        enable = self.get_realtime()
-        # enable = True
+        # enable = self.get_realtime()
+        enable = True
         self.done = False
         if enable is False:
             self.done = None            
@@ -90,7 +91,7 @@ class PhotoPublisher:
         self.logger = self.create_logger()
         self.logger.info("initializing pipeline...")
         self.video_capture = None
-        pipeline = gstreamer_pipeline(flip_method=2, framerate=10)
+        pipeline = gstreamer_pipeline(flip_method=0, framerate=10)
         self.logger.info("used pipeline: "+str(pipeline))
         enabled = False
         while enabled == False:
@@ -102,6 +103,7 @@ class PhotoPublisher:
         self.imu_msg = Imu()
         self.sub_imu = rospy.Subscriber("imu", Imu, self.imu_cb)
         self.pub_image = rospy.Publisher('/photo', ImageImu, queue_size=1)
+        self.pub_image_for_test = rospy.Publisher('/photo_test', Image, queue_size=1)
         self.bridge = CvBridge()
         self.iterator = 0
 
@@ -139,6 +141,7 @@ class PhotoPublisher:
             msg_img_imu.img = msg_img
             msg_img_imu.imu = self.imu_msg
             self.pub_image.publish(msg_img_imu)
+            self.pub_image_for_test.publish(msg_img)
             self.iterator = 0
             return True
         except Exception as e:
