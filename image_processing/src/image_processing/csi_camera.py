@@ -82,8 +82,8 @@ def gstreamer_pipeline(
 
 class PhotoPublisher:
     def __init__(self):
-        # enable = self.get_realtime()
-        enable = True
+        enable = self.get_realtime()
+        # enable = True
         self.done = False
         if enable is False:
             self.done = None            
@@ -103,7 +103,7 @@ class PhotoPublisher:
         self.imu_msg = Imu()
         self.sub_imu = rospy.Subscriber("imu", Imu, self.imu_cb)
         self.pub_image = rospy.Publisher('/photo', ImageImu, queue_size=1)
-        self.pub_image_for_test = rospy.Publisher('/photo_test', Image, queue_size=1)
+        # self.pub_image_for_test = rospy.Publisher('/photo_test', Image, queue_size=1)
         self.bridge = CvBridge()
         self.iterator = 0
 
@@ -141,7 +141,7 @@ class PhotoPublisher:
             msg_img_imu.img = msg_img
             msg_img_imu.imu = self.imu_msg
             self.pub_image.publish(msg_img_imu)
-            self.pub_image_for_test.publish(msg_img)
+            # self.pub_image_for_test.publish(msg_img)
             self.iterator = 0
             return True
         except Exception as e:
