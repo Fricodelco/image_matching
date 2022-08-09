@@ -80,6 +80,7 @@ class Image_Logger:
         else:
             self._out.write(img)
         if self.first_msg is False:
+            now = datetime.now()
             delta = now.strftime("%H:%M:%S.%f")[:-4]
             nsat = 0
             row = {"time":str(delta),
