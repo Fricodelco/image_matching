@@ -49,6 +49,11 @@ class Image_Logger:
         self.sub_imu = rospy.Subscriber('/imu', Imu, self.imu_cb, queue_size=1)
         self.sub_baro = rospy.Subscriber('/baro', Float64, self.baro_cb, queue_size=1)
         self.sub_droneinfo = rospy.Subscriber('/droneInfo', DroneInfo, self.droneinfo_cb, queue_size=1)
+        self.sub_baro_relative = rospy.Subscriber("baro_relative", Float64, self.baro_relative_cb)
+        self.height_relative = 0.0
+        self.start_time = time()
+        self.start_height = rospy.get_param("start_height")
+        self.stop_film = False
         self.lat = 0
         self.lon = 0
         self.alt = 0
@@ -63,6 +68,17 @@ class Image_Logger:
         self.time = time()
         self.my_date = None
 
+    def baro_relative_cb(self, data):
+        self.height_relative = data.data
+
+    def check_height(self):
+        if self.first_msg is False:
+            if abs(self.height_relative) <= self.start_height and time() - self.start_time > 30:
+                self.stop_film = True
+            elif self.start_height == 0.0 and time() - self.start_time > 120:
+                self.stop_film = True
+            print(time() - self.start_time)
+        
     def image_cb(self, data):
         try:
             img = self.bridge.imgmsg_to_cv2(data.img,'bgr8')
@@ -71,12 +87,15 @@ class Image_Logger:
             img = self.bridge.imgmsg_to_cv2(data.img,'8UC1')
             video_gray = True
         if self.first_msg is True:
+            print("start_filming")
+            self.start_time = time()
             if video_gray is True:
                 self._out = cv2.VideoWriter(self._name, self._fourcc, 5.0, (img.shape[1],img.shape[0]), 0)
             else:
                 self._out = cv2.VideoWriter(self._name, self._fourcc, 5.0, (img.shape[1],img.shape[0]))
             self._time = time()
             self.first_msg = False
+            self.my_date = datetime.now()
         else:
             self._out.write(img)
         if self.first_msg is False:
@@ -107,10 +126,10 @@ class Image_Logger:
         self.bat = data.VBAT
 
     def latlon_cb(self, data):
-        if self.first_msg is True:
-            self.time = time()
-            self.first_msg = False
-            self.my_date = datetime.now()
+        # if self.first_msg is True:
+            # self.time = time()
+            # self.first_msg = False
+            
         self.lat = data.latitude
         self.lon = data.longitude
         self.alt = data.altitude
@@ -156,7 +175,11 @@ if __name__ == '__main__':
     rospy.init_node('logger')
     logger = Image_Logger()
     if logger.realtime == True:
-        rospy.spin()
+        rate = rospy.Rate(10.0)
+        while not rospy.is_shutdown() and logger.stop_film is False:
+            logger.check_height()
+            rate.sleep()
+        print("stop_filming")
         logger._out.release()
         sys.stdout.write('image logger dead\n')
         

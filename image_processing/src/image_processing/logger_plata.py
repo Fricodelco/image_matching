@@ -14,10 +14,11 @@ import os
 import yaml
 class Logger:
     def __init__(self):
-        self.realtime = self.get_realtime()
+        #self.realtime = self.get_realtime()
         home = os.getenv("HOME")
         now = datetime.now()
         now = now.strftime("%d:%m:%Y,%H:%M")
+        print(now)
         self.data_path = home+'/copa5/created_csv/plata_log'+str(now)+'.csv'
         self.empty_file = True       
         self.first_msg = True
@@ -127,8 +128,8 @@ if __name__ == '__main__':
     rospy.init_node('logger')
     logger = Logger()
     rate = rospy.Rate(10.0)
-    if logger.realtime is True:
-        rospy.spin()
+    #if logger.realtime is True:
+    rospy.spin()
 
 
 

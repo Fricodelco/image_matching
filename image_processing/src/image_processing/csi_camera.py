@@ -9,6 +9,7 @@ from sensor_msgs.msg import Imu
 import os
 from datetime import datetime
 import logging
+from std_msgs.msg import Float64
 # define a video capture object
 # pipeline = 'nvarguscamerasrc !  video/x-raw(memory:NVMM), width=1920, height=1080, format=NV12, framerate=30/1 ! nvvidconv flip-method=0 ! video/x-raw, width=1920, height=1080, format=BGRx ! videoconvert ! video/x-raw, format=BGR ! appsink'
 # pipeline = 'nvarguscamerasrc !  video/x-raw(memory:NVMM), width=1920, height=1080, format=NV12, framerate=30/1 ! nvvidconv flip-method=0 ! video/x-raw, width=1920, height=1080, format=I420 ! videoconvert h! video/x-raw, format=BGR ! appsink'
@@ -88,6 +89,7 @@ class PhotoPublisher:
         if enable is False:
             self.done = None            
             return None
+        self.height = 0.0
         self.logger = self.create_logger()
         self.logger.info("initializing pipeline...")
         self.video_capture = None
@@ -103,9 +105,17 @@ class PhotoPublisher:
         self.imu_msg = Imu()
         self.sub_imu = rospy.Subscriber("imu", Imu, self.imu_cb)
         self.pub_image = rospy.Publisher('/photo', ImageImu, queue_size=1)
+        self.sub_baro = rospy.Subscriber("baro_relative", Float64, self.baro_cb)
         # self.pub_image_for_test = rospy.Publisher('/photo_test', Image, queue_size=1)
         self.bridge = CvBridge()
         self.iterator = 0
+        start_height = rospy.get_param("start_height")
+        while abs(self.height) < start_height:
+            rospy.sleep(0.2)
+        self.logger.info("csi start")
+
+    def baro_cb(self, data):
+        self.height = data.data
 
     def init_pipeline(self, pipeline):
         try:

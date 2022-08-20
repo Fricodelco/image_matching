@@ -107,6 +107,7 @@ class PositionFinder:
         self.wind_measure_time = rospy.get_param("wind_measure_time")
         self.link_window_upscale = rospy.get_param("link_window_upscale")
         self.unlink_time_for_upscale = rospy.get_param("unlink_time_for_upscale")
+        self.start_height = rospy.get_param("start_height")
         #ros infrustructure
         self.sub_gps = rospy.Subscriber("gps", NavSatFix, self.gps_cb)
         #if gps is true use baro otherwise use static height
@@ -143,6 +144,11 @@ class PositionFinder:
         # print("position finder ready")
         sys.stdout.write('position finder ready\n')
         self.logger.info("Position Finder ready")
+        if self.realtime is True:
+            while abs(self.height) < self.start_height:
+                rospy.sleep(0.2)
+        sys.stdout.write('position finder start\n')
+        self.logger.info("Position Finder start")
 
     def photo_cb(self, data):
         try:

@@ -3,6 +3,8 @@ import roslaunch
 import rospy
 from std_msgs.msg import Float64, String
 from time import time
+import os
+import yaml
 
 class Start:
     def __init__(self,baseAltitude, path):
@@ -23,14 +25,21 @@ class Start:
     def gps_cb(self,data):
         msg = Float64()
         msg.data = data.data - self.baseAltitude
+        # print(msg)
         self.baro_relative_pub.publish(msg)
-        if abs(data.data - self.baseAltitude) > self.start_height and self.started is False:
-            self.init_time = time()
-            self.setStatus(True)
-            self.started = True
-        elif abs(data.data - self.baseAltitude) <= self.start_height and self.started is True and time() - self.init_time > 30:
-            self.setStatus(False)
-    
+        # if abs(data.data - self.baseAltitude) > self.start_height and self.started is False:
+            # self.init_time = time()
+            # print("started")
+            # self.setStatus(True)
+            # self.started = True
+        # elif abs(data.data - self.baseAltitude) <= self.start_height and self.started is True and time() - self.init_time > 30:
+            # self.setStatus(False)
+        # elif self.start_height == 0.0 and time() - self.init_time > 120:
+            # self.setStatus(False)
+        # print(abs(data.data - self.baseAltitude))
+        # print(time() - self.init_time)
+        # print(self.started)
+
     def systemStart(self):
         self.launch.start()
     
@@ -48,14 +57,14 @@ class Start:
                 self.systemStop()
             self.status = self.cb_status
     
-    def load_param():
+    def load_param(self):
         home = os.getenv("HOME")
         data_path = home+'/copa5/config/config.yaml'
         with open(data_path) as file:
             params = yaml.full_load(file)
             for key in params:
                 if key == 'start_height':     
-            return params[key] 
+                    return params[key] 
 
     def find_path_to_config():
         name = 'config.yaml'
@@ -76,6 +85,6 @@ if __name__ == "__main__":
     rospy.loginfo("AutoStart enabled")
     rate = rospy.Rate(10.0)
     while not rospy.is_shutdown():
-        node.checkStatus()
+        # node.checkStatus()
         rate.sleep()
 # 3 seconds later
