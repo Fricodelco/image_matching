@@ -50,6 +50,7 @@ class PositionFinder:
         self.matcher = match_finder()
         #create global variables
         self.last_roi = None
+        self.gps_measure = None
         self.imu_roll = 0.0
         self.imu_pitch = 0.0
         self.imu_yaw = 0.0
@@ -108,6 +109,7 @@ class PositionFinder:
         self.link_window_upscale = rospy.get_param("link_window_upscale")
         self.unlink_time_for_upscale = rospy.get_param("unlink_time_for_upscale")
         self.start_height = rospy.get_param("start_height")
+        self.wind_measure_with_gps = rospy.get_param("wind_measure_with_gps")
         #ros infrustructure
         self.sub_gps = rospy.Subscriber("gps", NavSatFix, self.gps_cb)
         #if gps is true use baro otherwise use static height
@@ -164,13 +166,13 @@ class PositionFinder:
                 cadr = image_processing(img = image)
                 cadr.find_pixel_size_by_height(self.height, self.poi)
                 #IF THE WIND SERVER GOALED
-                if self.wind_mes_flag == True:
+                if self.wind_mes_flag == True and self.wind_measure_with_gps == False:
                     cadr.find_kp_dp_scale(self.matcher)
                     self.find_wind_speed(cadr)
                     # print("cadr analize time wind speed: ", time() - start_time)
                     self.logger.info("cadr analize time wind speed: "+str(time() - start_time))
                 #REGULAR LOCALIZATION
-                else:
+                elif self.wind_mes_flag == False:
                     #resize by pixel size
                     scale, map_pixel_bigger = self.matcher.find_scale(self.map_pixel_size, cadr.pixel_size)
                     if map_pixel_bigger is True:
@@ -416,10 +418,13 @@ class PositionFinder:
         mean_x = np.mean(self.wind_velocities_x)
         mean_y = np.mean(self.wind_velocities_y)
         print("calculated wind speed: ", mean_x, mean_y)
+        self.logger.info("calculated wind speed: "+str(mean_x)+'; '+str(mean_y))
         speed = np.sqrt(mean_x**2 + mean_y**2)
         alpha = np.arctan2(mean_y, mean_x)
         answer.speed = speed
         answer.angle = (alpha*180)/np.pi
+        self.main_cadr = None
+        self.gps_measure = None
         self.wind_velocities_y = np.empty(1)
         self.wind_velocities_x = np.empty(1)
         self.wind_server.set_succeeded(answer)
@@ -451,7 +456,27 @@ class PositionFinder:
         # img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         # img = cv2.line(img, (int(cadr.img.shape[1]/2), int(cadr.img.shape[0]/2)), (x2, y2), (255,0,0), 2)
         # self.pub_between_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))
-        
+    
+    def find_wind_speed_gps(self, gps):
+        if self.gps_measure == None:
+            self.gps_measure = NavSatFix()
+            self.gps_measure.latitude = gps.latitude
+            self.gps_measure.longitude = gps.longitude
+            self.time_between_cadrs = time()
+            rospy.sleep(self.time_sleep_before_wind_measure)
+            self.wind_time = time()
+            return None, None
+        g_c = GeodeticConvert()
+        g_c.initialiseReference(self.gps_measure.latitude, self.gps_measure.longitude, 0)
+        north, east, _ = g_c.geodetic2Ned(gps.latitude, gps.longitude, 0)
+        delta_t = time() - self.time_between_cadrs
+        print("north speed: ", north/delta_t, " east_speed: ", east/delta_t)
+        print(delta_t)
+        self.wind_velocities_y = np.append(self.wind_velocities_y, north/delta_t)
+        self.wind_velocities_x = np.append(self.wind_velocities_x, east/delta_t)
+        if time() - self.wind_time > self.wind_measure_time:
+            self.wind_mes_flag = False
+            
     def generate_and_send_vel(self, north_speed, east_speed, yaw_speed, pose_from_privyazka):
         msg = Odometry()
         msg.header.stamp = rospy.Time.now()
@@ -498,25 +523,18 @@ class PositionFinder:
         quat[2] = data.orientation.z
         quat[3] = data.orientation.w
         self.imu_roll, self.imu_pitch, self.imu_yaw = tf.transformations.euler_from_quaternion(quat)
-        print("angles: ",self.imu_roll, self.imu_pitch, self.imu_yaw)
+        # print("angles: ",self.imu_roll, self.imu_pitch, self.imu_yaw)
         # self.roll = data.angular_velocity.y/180.0*np.pi
         # self.pitch = data.angular_velocity.x/180.0*np.pi
         # self.yaw = data.angular_velocity.z/180.0*np.pi
 
 
     def gps_cb(self, data):
-        # if self.gps_init == False:
-        #     self.gps_init = True
-        #     self.gps_time = time()
-        # if time() - self.gps_time > self.count_of_pictures_for_odometry:
-        #     g_c = GeodeticConvert()
-        #     g_c.initialiseReference(self.lat_gps, self.lon_gps, 0)
-        #     x, y, _ = g_c.geodetic2Ned(data.latitude, data.longitude, 0)
-        #     self.gps_trans = np.sqrt(x*x + y*y)
-        #     self.gps_time = time()
-        #     print(self.gps_trans
         self.lat_gps = data.latitude
         self.lon_gps = data.longitude
+        if self.wind_mes_flag == True and self.wind_measure_with_gps == True:
+            self.find_wind_speed_gps(data)
+            self.logger.info("gps analize time wind speed: ")
 
     
     def filter_cb(self, data):
