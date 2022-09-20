@@ -19,7 +19,7 @@ class Logger:
         self.data_path = home+'/copa5/logs/command_log'+str(now)+'.csv'
         self.empty_file = True       
         self.first_msg = True
-        self.sub_string = rospy.Subscriber('/logging_topic', String, self.command_cb, queue_size=1)
+        self.sub_string = rospy.Subscriber('/logging_topic', String, self.command_cb, queue_size=20)
         self.header = ["time", "command"]
         self.time = time()
         self.my_date = None
