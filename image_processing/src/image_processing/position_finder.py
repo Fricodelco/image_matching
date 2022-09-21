@@ -423,6 +423,10 @@ class PositionFinder:
         alpha = np.arctan2(mean_y, mean_x)
         answer.speed = speed
         answer.angle = (alpha*180)/np.pi
+        if self.wind_measure_with_gps is True:
+            answer.angle = -1*(answer.angle - 90)
+            if answer.angle > 180:
+                answer.angle = answer.angle - 360
         self.main_cadr = None
         self.gps_measure = None
         self.wind_velocities_y = np.empty(1)

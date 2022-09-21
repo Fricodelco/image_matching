@@ -192,6 +192,7 @@ class match_finder():
         for m,n in matches:
             if m.distance < self.points_quality*n.distance:
                 good.append([m])
+        # img3 = cadr.img
         img3 = cv2.drawMatchesKnn(cadr.img, keypoints_1, roi.img, roi.kp, good,None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)     
         return good, img3
 

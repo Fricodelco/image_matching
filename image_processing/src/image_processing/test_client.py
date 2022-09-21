@@ -27,13 +27,13 @@ def get_realtime():
 if __name__ == '__main__':
     realtime = get_realtime()
     rospy.init_node('book_action_client_py')
-    if rospy.get_param("wind_speed_measure") == True:
-        result = action_client()
-        home = os.getenv("HOME")
-        path = home+'/copa5/created_csv/wind_speed.txt'
-        with open(path, 'w') as file:
-            file.write('speed: '+ str(result.speed)+'\n')
-            angle = (result.angle/3.14)*180
-            file.write('angle: '+ str(angle))
-        print("Result:", result.speed, result.angle)
+    # if rospy.get_param("wind_speed_measure") == True:
+    result = action_client()
+    home = os.getenv("HOME")
+    path = home+'/copa5/created_csv/wind_speed.txt'
+    with open(path, 'w') as file:
+        file.write('speed: '+ str(result.speed)+'\n')
+        # angle = (result.angle/3.14)*180
+        file.write('angle: '+ str(result.angle))
+    print("Result:", result.speed, result.angle)
     
