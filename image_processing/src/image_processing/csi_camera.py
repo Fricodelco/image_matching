@@ -106,7 +106,7 @@ class PhotoPublisher:
         self.sub_imu = rospy.Subscriber("imu", Imu, self.imu_cb)
         self.pub_image = rospy.Publisher('/photo', ImageImu, queue_size=1)
         self.sub_baro = rospy.Subscriber("baro_relative", Float64, self.baro_cb)
-        # self.pub_image_for_test = rospy.Publisher('/photo_test', Image, queue_size=1)
+        self.pub_image_for_test = rospy.Publisher('/photo_test', Image, queue_size=1)
         self.bridge = CvBridge()
         self.iterator = 0
         start_height = rospy.get_param("start_height")
@@ -151,7 +151,7 @@ class PhotoPublisher:
             msg_img_imu.img = msg_img
             msg_img_imu.imu = self.imu_msg
             self.pub_image.publish(msg_img_imu)
-            # self.pub_image_for_test.publish(msg_img)
+            self.pub_image_for_test.publish(msg_img)
             self.iterator = 0
             return True
         except Exception as e:

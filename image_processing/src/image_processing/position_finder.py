@@ -111,7 +111,7 @@ class PositionFinder:
         self.start_height = rospy.get_param("start_height")
         self.wind_measure_with_gps = rospy.get_param("wind_measure_with_gps")
         #ros infrustructure
-        self.sub_gps = rospy.Subscriber("gps", NavSatFix, self.gps_cb)
+        self.sub_gps = rospy.Subscriber("gps", NavSatFix, self.gps_cb, queue_size = 1)
         #if gps is true use baro otherwise use static height
         if self.use_gps is True:
             if self.use_baro is True:
@@ -411,12 +411,16 @@ class PositionFinder:
             
 
     def windCall(self, goal):
+        print("WIND CALLED")
+        self.logger.info("WIND CALLED")
         self.wind_mes_flag = True
         answer = WindSpeedResult()
         while self.wind_mes_flag == True:
             rospy.sleep(0.1)
         mean_x = np.mean(self.wind_velocities_x)
         mean_y = np.mean(self.wind_velocities_y)
+        print(self.wind_velocities_x)
+        print(self.wind_velocities_y)
         print("calculated wind speed: ", mean_x, mean_y)
         self.logger.info("calculated wind speed: "+str(mean_x)+'; '+str(mean_y))
         speed = np.sqrt(mean_x**2 + mean_y**2)
@@ -427,6 +431,7 @@ class PositionFinder:
             answer.angle = -1*(answer.angle - 90)
             if answer.angle > 180:
                 answer.angle = answer.angle - 360
+        self.logger.info("wind speed answer: "+str(answer.speed)+'; '+str(answer.angle))
         self.main_cadr = None
         self.gps_measure = None
         self.wind_velocities_y = np.empty(1)
@@ -451,6 +456,7 @@ class PositionFinder:
         delta_t = time() - self.time_between_cadrs
         vx = delta_x/delta_t
         vy = delta_y/delta_t
+        self.logger.info("vx: "+str(vx)+'; '+"vy: "+ str(vy))
         self.wind_velocities_y = np.append(self.wind_velocities_y, vy)
         self.wind_velocities_x = np.append(self.wind_velocities_x, vx)
         if time() - self.wind_time > self.wind_measure_time:
@@ -473,13 +479,17 @@ class PositionFinder:
         g_c = GeodeticConvert()
         g_c.initialiseReference(self.gps_measure.latitude, self.gps_measure.longitude, 0)
         north, east, _ = g_c.geodetic2Ned(gps.latitude, gps.longitude, 0)
+        self.gps_measure.latitude = gps.latitude
+        self.gps_measure.longitude = gps.longitude
         delta_t = time() - self.time_between_cadrs
-        print("north speed: ", north/delta_t, " east_speed: ", east/delta_t)
-        print(delta_t)
-        self.wind_velocities_y = np.append(self.wind_velocities_y, north/delta_t)
-        self.wind_velocities_x = np.append(self.wind_velocities_x, east/delta_t)
-        if time() - self.wind_time > self.wind_measure_time:
-            self.wind_mes_flag = False
+        self.time_between_cadrs = time()
+        if delta_t >= 0.02 and delta_t <= self.time_sleep_before_wind_measure:
+            print("north speed: ", north/delta_t, " east_speed: ", east/delta_t, "delta_t: ", delta_t)
+            self.logger.info("north: "+str(north/delta_t)+'; '+"east: "+ str(east/delta_t)+ "; delta_t: " + str(delta_t))
+            self.wind_velocities_y = np.append(self.wind_velocities_y, north/delta_t)
+            self.wind_velocities_x = np.append(self.wind_velocities_x, east/delta_t)
+            if time() - self.wind_time > self.wind_measure_time:
+                self.wind_mes_flag = False
             
     def generate_and_send_vel(self, north_speed, east_speed, yaw_speed, pose_from_privyazka):
         msg = Odometry()
