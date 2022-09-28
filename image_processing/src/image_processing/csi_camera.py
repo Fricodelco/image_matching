@@ -27,7 +27,7 @@ def gstreamer_pipeline(
 ):
     return (
         # "nvarguscamerasrc sensor-id=%d wbmode=0 gainrange='0 16' ispdigitalgainrange='0 16' exposuretimerange='5000000 5000000' aelock=true !"
-        "nvarguscamerasrc sensor-id=%d tnr-mode='1' tnr-strength='1' wbmode='5'scene-mode='3' exposuretimerange='10000000 10000000' aelock=true !"
+        "nvarguscamerasrc sensor-id=%d tnr-mode='1' tnr-strength='1' wbmode='1'scene-mode='3' exposuretimerange='5000000 5000000' aelock=true !"
         "video/x-raw(memory:NVMM), width=(int)%d, height=(int)%d, framerate=(fraction)%d/1 ! "
         "nvvidconv flip-method=%d ! "
         "video/x-raw, width=(int)%d, height=(int)%d, format=(string)BGRx ! "
@@ -152,6 +152,9 @@ class PhotoPublisher:
             msg_img_imu.imu = self.imu_msg
             self.pub_image.publish(msg_img_imu)
             self.pub_image_for_test.publish(msg_img)
+            if frame.shape[0] > 0:
+                self.logger.info("send photo!")    
+            self.logger.info("get imu!")
             self.iterator = 0
             return True
         except Exception as e:

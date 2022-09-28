@@ -25,6 +25,7 @@ import os
 import yaml
 import sys
 from copa_msgs.msg import ImageImu
+import logging
 
 class Image_Logger:
     def __init__(self):
@@ -35,13 +36,13 @@ class Image_Logger:
         now = now.strftime("%d:%m:%Y,%H:%M")
         self.data_path = home+'/copa5/video/'
         self._name = self.data_path+'created_video_'+str(now)+'.mkv'
+        self.logger.info("video path: " + self._name)
         self._fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         self._time = None
         self.iterator = 1
         self.first_msg = True
         self.sub_video = rospy.Subscriber('/photo', ImageImu, self.image_cb, queue_size = 1)
         self.bridge = CvBridge()
-        
         self.data_path_csv = home+'/copa5/created_csv/log_postanalize_visual'+str(now)+'.csv'
         self.empty_file = True       
         self.first_msg = True
@@ -53,6 +54,7 @@ class Image_Logger:
         self.height_relative = 0.0
         self.start_time = time()
         self.start_height = rospy.get_param("start_height")
+        self.logger.info("start height" + str(self.start_height))
         self.stop_film = False
         self.lat = 0
         self.lon = 0
@@ -73,11 +75,12 @@ class Image_Logger:
 
     def check_height(self):
         if self.first_msg is False:
-            if abs(self.height_relative) <= self.start_height and time() - self.start_time > 30:
+            if abs(self.height_relative) <= self.start_height and time() - self.start_time > 60:
                 self.stop_film = True
+                self.logger.info("landing, end of video")
             elif self.start_height == 0.0 and time() - self.start_time > 120:
                 self.stop_film = True
-            print(time() - self.start_time)
+                self.logger.info("start height zero, end of check")
         
     def image_cb(self, data):
         try:
@@ -88,6 +91,7 @@ class Image_Logger:
             video_gray = True
         if self.first_msg is True:
             print("start_filming")
+            self.logger.info("start filming, get first cadr")
             self.start_time = time()
             if video_gray is True:
                 self._out = cv2.VideoWriter(self._name, self._fourcc, 5.0, (img.shape[1],img.shape[0]), 0)
@@ -97,6 +101,7 @@ class Image_Logger:
             self.first_msg = False
             self.my_date = datetime.now()
         else:
+            self.logger.info("get cadr, video time: " + str(time() - self.start_time))
             self._out.write(img)
         if self.first_msg is False:
             now = datetime.now()
@@ -111,6 +116,7 @@ class Image_Logger:
                 "head":float('{:.3f}'.format(self.yaw)),
                 "ub":str(float('{:.1f}'.format(self.bat))), 
                 "nsat":str(self.nsat)}
+            self.logger.info("save some gps data")
             self.save_data(row)
         
         
@@ -171,6 +177,24 @@ class Image_Logger:
             rospy.sleep(0.1)
         return realtime
 
+     def create_logger(self):
+        home = os.getenv("HOME")
+        now = datetime.now()
+        now = now.strftime("%d:%m:%Y,%H:%M")
+        logname = home+'/copa5/logs/image_logger_'+str(now)+'.log'
+        logging.basicConfig(filename=logname,
+                                filemode='w',
+                                format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                                datefmt='%H:%M:%S',
+                                level=logging.DEBUG,
+                                force=True)
+        logger = logging.getLogger('photo_publisher')
+        logger.setLevel(logging.DEBUG)
+        fh = logging.FileHandler(logname)
+        fh.setLevel(logging.DEBUG)
+        fh.setFormatter(logging.Formatter(fmt='POSFINDER:[%(asctime)s: %(levelname)s] %(message)s'))
+        return logger
+
 if __name__ == '__main__':
     rospy.init_node('logger')
     logger = Image_Logger()
@@ -181,6 +205,7 @@ if __name__ == '__main__':
             rate.sleep()
         print("stop_filming")
         logger._out.release()
+        logger.logger.info("video saved")
         sys.stdout.write('image logger dead\n')
         
 
