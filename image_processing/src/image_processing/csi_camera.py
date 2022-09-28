@@ -153,8 +153,7 @@ class PhotoPublisher:
             self.pub_image.publish(msg_img_imu)
             self.pub_image_for_test.publish(msg_img)
             if frame.shape[0] > 0:
-                self.logger.info("send photo!")    
-            self.logger.info("get imu!")
+                self.logger.info("send photo!")
             self.iterator = 0
             return True
         except Exception as e:
