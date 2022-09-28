@@ -31,6 +31,7 @@ class Image_Logger:
     def __init__(self):
         self.realtime = self.get_realtime()
         print("REALTIME PARAM", self.realtime)
+        self.logger = self.create_logger()
         home = os.getenv("HOME")
         now = datetime.now()
         now = now.strftime("%d:%m:%Y,%H:%M")
@@ -177,7 +178,7 @@ class Image_Logger:
             rospy.sleep(0.1)
         return realtime
 
-     def create_logger(self):
+    def create_logger(self):
         home = os.getenv("HOME")
         now = datetime.now()
         now = now.strftime("%d:%m:%Y,%H:%M")
