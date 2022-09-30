@@ -23,13 +23,13 @@ def gstreamer_pipeline(
     display_width=1920,
     display_height=1080,
     framerate=10,
-    flip_method=2,
+    flip_method=1,
 ):
     return (
         # "nvarguscamerasrc sensor-id=%d wbmode=0 gainrange='0 16' ispdigitalgainrange='0 16' exposuretimerange='5000000 5000000' aelock=true !"
-        "nvarguscamerasrc sensor-id=%d tnr-mode='1' tnr-strength='1' wbmode='1'scene-mode='3' exposuretimerange='5000000 5000000' aelock=true !"
+        "nvarguscamerasrc sensor-id=%d tnr-mode='1' tnr-strength='1' awblock='false' wbmode='5' scene-mode='3' exposuretimerange='13000 500000' aelock='false' orientation='2' !"
         "video/x-raw(memory:NVMM), width=(int)%d, height=(int)%d, framerate=(fraction)%d/1 ! "
-        "nvvidconv flip-method=%d ! "
+        "nvvidconv flip-method='2' ! "
         "video/x-raw, width=(int)%d, height=(int)%d, format=(string)BGRx ! "
         "videoconvert ! "
         "video/x-raw, format=(string)BGR ! appsink "
@@ -38,7 +38,6 @@ def gstreamer_pipeline(
             capture_width,
             capture_height,
             framerate,
-            flip_method,
             display_width,
             display_height,
         )
