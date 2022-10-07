@@ -17,7 +17,7 @@ class Logger:
         #self.realtime = self.get_realtime()
         home = os.getenv("HOME")
         now = datetime.now()
-        now = now.strftime("%d:%m:%Y,%H:%M")
+        now = now.strftime("%d:%m:%Y,%H:%M:%S")
         print(now)
         self.data_path = home+'/copa5/created_csv/plata_log'+str(now)+'.csv'
         self.empty_file = True       
