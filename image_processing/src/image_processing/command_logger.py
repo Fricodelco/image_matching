@@ -10,6 +10,7 @@ import csv
 from datetime import datetime
 import os
 import yaml
+from os.path import exists
 class Logger:
     def __init__(self):
         self.realtime = self.get_realtime()
@@ -17,6 +18,8 @@ class Logger:
         now = datetime.now()
         now = now.strftime("%d:%m:%Y,%H:%M")
         self.data_path = home+'/copa5/logs/command_log'+str(now)+'.csv'
+        if exists(self.data_path) is True:
+            self.data_path = home+'/copa5/logs/command_log'+str(now)+'_1'+'.csv'
         self.empty_file = True       
         self.first_msg = True
         self.sub_string = rospy.Subscriber('/logging_topic', String, self.command_cb, queue_size=20)

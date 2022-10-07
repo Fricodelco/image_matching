@@ -12,7 +12,7 @@ import threading
 import yaml
 from copa_msgs.msg import ImageImu
 from sensor_msgs.msg import Imu
-
+import numpy as np
 class PhotoPublisher:
     def __init__(self, photo):
         enable = self.get_realtime()
@@ -24,6 +24,16 @@ class PhotoPublisher:
         home = os.getenv("HOME")
         self.rate_multi = rospy.get_param("rate_multiplier")
         self.data_path = home+'/copa5/video/'+name
+        
+        path = str(home)+'/copa5/ws/src/image_matching/image_processing/camera_params/params.yml'
+        cv_file = cv2.FileStorage(path, cv2.FILE_STORAGE_READ)
+        camera_matrix = cv_file.getNode('K').mat()
+        dist_matrix = cv_file.getNode('D').mat()
+        cv_file.release()
+        self.mtx = camera_matrix
+        self.dist = dist_matrix
+
+
         if photo is True:
             self.timer = rospy.Timer(rospy.Duration(0.1), self.timer_callback)
             self.photos_paths = glob.glob(self.data_path+"/photos"+"/*.jpg")
@@ -93,6 +103,16 @@ class PhotoPublisher:
             if self.iterator > self.rate/5:
                 # frame = frame[:,:,2]
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                frame = self.undistort(frame, balance=1.0, scale=0.625)
+                # h,  w = frame.shape[:2]
+                # newcameramtx, roi = cv2.getOptimalNewCameraMatrix(self.mtx, self.dist, (w,h), 1, (w,h))
+                # frame = cv2.undistort(frame, self.mtx, self.dist, None, newcameramtx)
+                # x, y, w, h = roi
+                # print(frame.shape)
+                # frame = frame[y:y+h, x:x+w]
+                # print(frame.shape)
+                # frame = cv2.undistort(frame, self.mtx, self.dist, None, None)
+                # frame = self.undistort(frame)
                 msg_img = Image()
                 msg_img = self.bridge.cv2_to_imgmsg(frame, "8UC1")
                 msg_img_imu = ImageImu()
@@ -113,6 +133,36 @@ class PhotoPublisher:
             params = yaml.full_load(file)
         return params
     
+    def undistort(self, img, balance=0.0, dim2=None, dim3=None, scale = 0.5):
+        # DIM=(1920, 1080)
+        # K=np.array([[982.5159865510459, 0.0, 942.15315016315], [0.0, 987.6987576270565, 541.8676162420575], [0.0, 0.0, 1.0]])
+        # D=np.array([[-0.03681123778339426], [0.07699469409655353], [-0.15661955407342928], [0.09486768984401851]])
+        DIM=(1920, 1080)
+        K=np.array([[980.112887385314, 0.0, 941.3416228048669], [0.0, 984.9820720751916, 539.6096400309403], [0.0, 0.0, 1.0]])
+        D=np.array([[-0.027361240466794334], [0.02977144485814498], [-0.06669059605260248], [0.038761129156165954]])
+        # h,w = img.shape[:2]
+        # map1, map2 = cv2.fisheye.initUndistortRectifyMap(K, D, np.eye(3), K, DIM, cv2.CV_16SC2)
+        # undistorted_img = cv2.remap(img, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+        # return undistorted_img
+        
+        dim1 = img.shape[:2][::-1]  #dim1 is the dimension of input image to un-distort
+        assert dim1[0]/dim1[1] == DIM[0]/DIM[1], "Image to undistort needs to have same aspect ratio as the ones used in calibration"
+        if not dim2:
+            dim2 = dim1
+        if not dim3:
+            dim3 = dim1
+        scaled_K = K * dim1[0] / DIM[0]  # The values of K is to scale with image dimension.
+        scaled_K[2][2] = 1.0  # Except that K[2][2] is always 1.0
+        # This is how scaled_K, dim2 and balance are used to determine the final K used to un-distort image. OpenCV document failed to make this clear!
+        new_K = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(scaled_K, D, dim2, np.eye(3), balance=balance)
+        map1, map2 = cv2.fisheye.initUndistortRectifyMap(scaled_K, D, np.eye(3), new_K, dim3, cv2.CV_16SC2)
+        undistorted_img = cv2.remap(img, map1, map2, interpolation=cv2.INTER_AREA, borderMode=cv2.BORDER_CONSTANT)
+        start_dim_0 = int((dim1[0]*(1-scale))/2)
+        start_dim_1 = int((dim1[1]*(1-scale))/2)
+        target_dim_0 = int(dim1[0]*scale)
+        target_dim_1 = int(dim1[1]*scale)
+        frame = undistorted_img[start_dim_1:start_dim_1+target_dim_1, start_dim_0:start_dim_0+target_dim_0]
+        return frame
 
 if __name__ == '__main__':
     rospy.init_node('photo_publisher')
