@@ -62,10 +62,8 @@ if __name__ == '__main__':
         rate.sleep()
     print("stop_filming")
     logger._out.release()
-    logger.logger.info("video saved")
     sys.stdout.write('image logger dead\n')
     
-
 
 
 

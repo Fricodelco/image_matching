@@ -44,8 +44,6 @@ class PositionFinder:
         # self.main_map = image_processing('600m/Anapa2_g.tif', 0)
         self.first_cadr = True
         #camera params
-        self.poi = 84/180.0*np.pi
-        self.f = 7.7
         #create matcher object
         self.matcher = match_finder()
         #create global variables
@@ -89,6 +87,8 @@ class PositionFinder:
         self.gps_trans = None
         self.pose_from_privyazka = False
         #load params
+        self.poi = rospy.get_param("camera_poi")/180.0*np.pi
+        self.f = rospy.get_param("camera_f")
         self.search_scale_for_roi_by_gps = rospy.get_param("search_scale_for_roi_by_gps")
         self.search_scale_for_roi_by_detection = rospy.get_param("search_scale_for_roi_by_detection")
         self.search_scale_for_roi_by_rolling_window = rospy.get_param("search_scale_for_roi_by_rolling_window")
@@ -164,6 +164,7 @@ class PositionFinder:
                 else:
                     image = self.bridge.imgmsg_to_cv2(data.img, "bgr8")
                     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
                 cadr = image_processing(img = image)
                 cadr.find_pixel_size_by_height(self.height, self.poi)
                 #IF THE WIND SERVER GOALED
@@ -275,27 +276,32 @@ class PositionFinder:
 
     def pose_from_roi(self, roi, cadr):
         good, img_for_pub = self.matcher.find_matches(roi, cadr)
-        north_speed = 0
+        normalize_imagesth_speed = 0
         east_speed = 0
         yaw_speed = 0
         speed_limit = False
         if time() - self.time_between_cadrs > self.count_of_pictures_for_odometry:
             try:
                 north_speed, east_speed, speed_limit, yaw_speed = self.compare_cadrs(cadr, self.old_cadr)
-            except:
+            except Exception as e:
+                print("between cadrs exception", e)
                 north_speed = 0
                 east_speed = 0
+                self.logger.error("between cadrs exception"+str(e))
             self.old_cadr = cadr
         
-        if self.publish_keypoints_matches_img is True:
-            self.pub_keypoints_image.publish(self.bridge.cv2_to_imgmsg(img_for_pub, "rgb8"))
+        # if self.publish_keypoints_matches_img is True:
+            # self.pub_keypoints_image.publish(self.bridge.cv2_to_imgmsg(img_for_pub, "rgb8"))
         answer = "transform exception"
         if(len(good)>10):
             try:
-                x_center, y_center, roll, pitch, yaw, M, img_tf, answer = self.matcher.find_keypoints_transform(good, roi, cadr)
+                x_center, y_center, roll, pitch, yaw, M, img_tf, answer = self.matcher.find_keypoints_transform(good, roi, cadr, img_for_pub)
+                if self.publish_keypoints_matches_img is True:
+                    self.pub_keypoints_image.publish(self.bridge.cv2_to_imgmsg(img_tf, "rgb8"))
             except Exception as e:
                 x_center = None
-                self.logger.error(e)
+                print(e)
+                self.logger.error("find transform exception"+str(e))
         else:
             answer = "not enough keypoints to transform"
             self.logger.info("could not find transform")
@@ -322,7 +328,7 @@ class PositionFinder:
         
         if x_center is not None and speed_limit is False:
             if self.publish_tf_img is True:
-                self.pub_image.publish(self.bridge.cv2_to_imgmsg(img_tf, "8UC1"))
+                self.pub_image.publish(self.bridge.cv2_to_imgmsg(img_tf, "8UC3"))
             
             lat_zero, lon_zero,_ ,_ , x_meter, y_meter = self.matcher.solve_IK(x_center, y_center, self.height, 0, 0, yaw, roi, self.main_map)
             lat, lon, _, _, x_inc, y_inc = self.matcher.solve_IK(x_center, y_center, self.height,
@@ -376,8 +382,7 @@ class PositionFinder:
     
     def compare_cadrs(self, cadr, cadr_old):
         good, _ = self.matcher.find_matches(cadr, cadr_old)
-        x_center, y_center, roll, pitch, yaw_cadr, M, img, answer = self.matcher.find_keypoints_transform(good, cadr, cadr_old)
-
+        x_center, y_center, roll, pitch, yaw_cadr, M, img, answer = self.matcher.find_keypoints_transform(good, cadr, cadr_old, None)
         if x_center is not None:
             if self.publish_between_img is True:
                 if img is not None:
@@ -389,8 +394,8 @@ class PositionFinder:
             delta_time = time() - self.time_between_cadrs
             self.time_between_cadrs = time()
             if delta_time < 2.0 and abs(yaw_cadr) < 1.0:
-                north_speed = y_trans/delta_time
-                east_speed = x_trans/delta_time
+                north_speed = 2*(y_trans/delta_time)
+                east_speed = 2*(x_trans/delta_time)
                 speed_limit = False
                 if abs(north_speed) > self.low_pass_speed or abs(east_speed) > self.low_pass_speed:
                     north_speed = 0
@@ -404,12 +409,13 @@ class PositionFinder:
                 # print("north speed: ",float('{:.3f}'.format(north_speed)), "east_speed: ", float('{:.3f}'.format(east_speed)), "yaw cadr: ", yaw_cadr)
                 yaw_speed = -1*(yaw_cadr)/delta_time
                 self.generate_and_send_vel(north_speed, east_speed, yaw_speed, self.pose_from_privyazka)
-                
+                print("speed: ", east_speed*delta_time, north_speed*delta_time)
                 self.last_yaw -= yaw_cadr
                 self.x_meter += east_speed*delta_time
                 self.y_meter -= north_speed*delta_time
                 return north_speed, east_speed, speed_limit, yaw_speed 
-            
+        else:
+            print("no between cadrs match")
 
     def windCall(self, goal):
         print("WIND CALLED")
@@ -538,7 +544,7 @@ class PositionFinder:
         quat[2] = data.orientation.z
         quat[3] = data.orientation.w
         self.imu_roll, self.imu_pitch, self.imu_yaw = tf.transformations.euler_from_quaternion(quat)
-        # print("angles: ",self.imu_roll, self.imu_pitch, self.imu_yaw)
+        print("angles: ",self.imu_roll, self.imu_pitch, self.imu_yaw)
         # self.roll = data.angular_velocity.y/180.0*np.pi
         # self.pitch = data.angular_velocity.x/180.0*np.pi
         # self.yaw = data.angular_velocity.z/180.0*np.pi
@@ -569,7 +575,7 @@ class PositionFinder:
     def create_logger(self):
         home = os.getenv("HOME")
         now = datetime.now()
-        now = now.strftime("%d:%m:%Y,%H:%M")
+        now = now.strftime("%d:%m:%Y,%H:%M:%S")
         logname = home+'/copa5/logs/pos_finder_'+str(now)+'.log'
         # print("LOGNAME")
         # print(logname)

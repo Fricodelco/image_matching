@@ -26,6 +26,7 @@ import yaml
 import sys
 from copa_msgs.msg import ImageImu
 import logging
+from utils import check_exist
 
 class Image_Logger:
     def __init__(self):
@@ -34,9 +35,10 @@ class Image_Logger:
         self.logger = self.create_logger()
         home = os.getenv("HOME")
         now = datetime.now()
-        now = now.strftime("%d:%m:%Y,%H:%M")
+        now = now.strftime("%d:%m:%Y,%H:%M:%S")
         self.data_path = home+'/copa5/video/'
         self._name = self.data_path+'created_video_'+str(now)+'.mkv'
+        self._name = check_exist(self._name)
         self.logger.info("video path: " + self._name)
         self._fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         self._time = None
@@ -45,6 +47,7 @@ class Image_Logger:
         self.sub_video = rospy.Subscriber('/photo', ImageImu, self.image_cb, queue_size = 1)
         self.bridge = CvBridge()
         self.data_path_csv = home+'/copa5/created_csv/log_postanalize_visual'+str(now)+'.csv'
+        self.data_path_csv = check_exist(self.data_path_csv)
         self.empty_file = True       
         self.first_msg = True
         self.sub_latlon = rospy.Subscriber('/gps', NavSatFix, self.latlon_cb, queue_size=1)
@@ -181,8 +184,9 @@ class Image_Logger:
     def create_logger(self):
         home = os.getenv("HOME")
         now = datetime.now()
-        now = now.strftime("%d:%m:%Y,%H:%M")
+        now = now.strftime("%d:%m:%Y,%H:%M:%S")
         logname = home+'/copa5/logs/image_logger_'+str(now)+'.log'
+        logname = check_exist(logname)
         logging.basicConfig(filename=logname,
                                 filemode='w',
                                 format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
@@ -199,15 +203,15 @@ class Image_Logger:
 if __name__ == '__main__':
     rospy.init_node('logger')
     logger = Image_Logger()
-    if logger.realtime == True:
-        rate = rospy.Rate(10.0)
-        while not rospy.is_shutdown() and logger.stop_film is False:
-            logger.check_height()
-            rate.sleep()
-        print("stop_filming")
-        logger._out.release()
-        logger.logger.info("video saved")
-        sys.stdout.write('image logger dead\n')
+    # if logger.realtime == True:
+    rate = rospy.Rate(10.0)
+    while not rospy.is_shutdown() and logger.stop_film is False:
+        logger.check_height()
+        rate.sleep()
+    print("stop_filming")
+    logger._out.release()
+    logger.logger.info("video saved")
+    sys.stdout.write('image logger dead\n')
         
 
 

@@ -179,7 +179,7 @@ class match_finder():
         descriptors_1 = cadr.dp
         matches = []
         if self.cuda_enabled == False:
-            bf = cv2.BFMatcher()
+            bf = cv2.BFMatcher(cv2.NORM_L2)
             matches = bf.knnMatch(descriptors_1,roi.dp,k=2)
         else:
             matcherGPU = cv2.cuda.DescriptorMatcher_createBFMatcher(cv2.NORM_L2)
@@ -197,16 +197,17 @@ class match_finder():
         return good, img3
 
     def find_kp_dp(self, img):
-        clahe = cv2.createCLAHE(clipLimit=30.0, tileGridSize=(8,8))
-        # clahe = cv2.createCLAHE(clipLimit=20.0, tileGridSize=(4,4))
+        # clahe = cv2.createCLAHE(clipLimit=30.0, tileGridSize=(8,8))
+        clahe = cv2.createCLAHE(clipLimit=80.0, tileGridSize=(16,16))
         img = clahe.apply(img)
+        img = cv2.GaussianBlur(img,(3,3),0)
         surf = cv2.xfeatures2d.SIFT_create(nfeatures = 0,
             nOctaveLayers = self.nOctaveLayers,
             contrastThreshold = self.contrastThreshold,
             edgeThreshold = self.edgeThreshold,
             sigma = self.sigma)
-        # surf = cv2.xfeatures2d.SURF_create(hessianThreshold = 300,
-        #                             nOctaves = 20,
+        # surf = cv2.xfeatures2d.SURF_create(hessianThreshold = 10,
+        #                             nOctaves = 5,
         #                             nOctaveLayers = 5,
         #                             extended = True,
         #                             upright = False)
@@ -214,7 +215,7 @@ class match_finder():
         keypoints_1, descriptors_1 = surf.detectAndCompute(img, None)
         return keypoints_1, descriptors_1, img
 
-    def find_keypoints_transform(self, matches, roi, cadr):
+    def find_keypoints_transform(self, matches, roi, cadr, img_for_pub):
         try:
             img2 = roi.img
         except:
@@ -224,7 +225,7 @@ class match_finder():
         kp2 = roi.kp
         src_pts = np.float32([ kp1[m[0].queryIdx].pt for m in matches]).reshape(-1,1,2)
         dst_pts = np.float32([ kp2[m[0].trainIdx].pt for m in matches]).reshape(-1,1,2)
-        M, mask = cv2.findHomography(src_pts, dst_pts, cv2.USAC_MAGSAC, 1.0)
+        M, mask = cv2.findHomography(src_pts, dst_pts, cv2.USAC_MAGSAC, 0.1)
         matchesMask = [[0,0] for i in range(len(matches))]
         h,w = img1.shape
         pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
@@ -232,16 +233,21 @@ class match_finder():
         dst = cv2.perspectiveTransform(pts,M)
         isConv, answer = isConvex(dst, img1.shape, self.angle_restriction_homography,
                 self.low_scale_restriction_homography, self.high_scale_restriction_homography) 
+        x_center, y_center = line_intersection((dst[0][0], dst[2][0]), (dst[1][0], dst[3][0]))
+        #draw
+        if img_for_pub is not None:
+            dst[0][0][0]+=img1.shape[1]
+            dst[1][0][0]+=img1.shape[1]
+            dst[2][0][0]+=img1.shape[1]
+            dst[3][0][0]+=img1.shape[1]
+            x_center_img, y_center_img = line_intersection((dst[0][0], dst[2][0]), (dst[1][0], dst[3][0]))
+            img_for_pub = cv2.circle(img_for_pub, (int(x_center_img), int(y_center_img)), 10, 255, 5)
+            img_for_pub = cv2.polylines(img_for_pub,[np.int32(dst)],True,255,3, cv2.LINE_AA)    
         if isConv is True:
-            roll, pitch, yaw = self.get_angles_from_homography(M)
-            x_center, y_center = line_intersection((dst[0][0], dst[2][0]), (dst[1][0], dst[3][0]))
-            #draw
-            # img3 = copy.deepcopy(img2)
-            # img2 = cv2.circle(img2, (int(x_center), int(y_center)), 10, 255, 5)
-            # img2 = cv2.polylines(img2,[np.int32(dst)],True,255,3, cv2.LINE_AA)
-            return x_center, y_center, roll, pitch, yaw, M, img2, answer
+            roll, pitch, yaw = self.get_angles_from_homography(M) 
+            return x_center, y_center, roll, pitch, yaw, M, img_for_pub, answer
         else:
-            return None, None, None, None, None, None, None, answer
+            return None, None, None, None, None, None, img_for_pub, answer
     
     def solve_IK(self, x_center, y_center, height, roll, pitch, yaw, roi, map_):
         delta_pitch_pixels = -1*height*np.sin(pitch+self.camera_pitch_angle)/float(roi.pixel_size)

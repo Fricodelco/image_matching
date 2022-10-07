@@ -163,7 +163,7 @@ class PhotoPublisher:
     def create_logger(self):
         home = os.getenv("HOME")
         now = datetime.now()
-        now = now.strftime("%d:%m:%Y,%H:%M")
+        now = now.strftime("%d:%m:%Y,%H:%M:%S")
         logname = home+'/copa5/logs/csi_camera_'+str(now)+'.log'
         logging.basicConfig(filename=logname,
                                 filemode='w',

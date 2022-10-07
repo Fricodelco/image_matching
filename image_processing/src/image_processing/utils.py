@@ -3,6 +3,16 @@ import numpy as np
 from decimal import Decimal
 from geodetic_conv import GeodeticConvert
 from math import atan2, pi
+from os.path import exists
+
+def check_exist(path, i = 1):
+    print(path)
+    if exists(path) is True:
+        path = str(i) + '_' + path
+        check_exist(path, i=i+1)
+    else:
+        return path
+        
 
 def resize_img(img, scale):
     width = int(img.shape[1] * Decimal(scale))
@@ -86,7 +96,7 @@ def isConvex(points, shape, angle_restriction_homography, low_scale_restriction_
         curr = CrossProduct(temp)
         if (curr != 0):
             if (curr * prev < 0):
-                return False, "answer is not convex"
+                return False, "ANSWER IS NOT CONVEX"
             else:
                 prev = curr
     dist1 = calculate_euqlidian_dist(p[0], p[1])
@@ -95,16 +105,16 @@ def isConvex(points, shape, angle_restriction_homography, low_scale_restriction_
     ls = low_scale_restriction_homography
     hs = high_scale_restriction_homography
     if shape[0]/dist1 < ls:
-        answer = "shape not fit, shape[0]/dist1: " + str(shape[0]/dist1) + " ls: " + str(ls) 
+        answer = "SHAPE NOT FIT, shape[0]/dist1: " + str(shape[0]/dist1) + " ls: " + str(ls) 
         return False, answer
     if shape[1]/dist2 < ls: 
-        answer = "shape not fit, shape[1]/dist2: " + str(shape[1]/dist2) + " ls: " + str(ls) 
+        answer = "SHAPE NOT FIT, shape[1]/dist2: " + str(shape[1]/dist2) + " ls: " + str(ls) 
         return False, answer
     if shape[0]/dist1 > hs:
-        answer = "shape not fit, shape[0]/dist1: " + str(shape[0]/dist1) + " hs: " + str(hs) 
+        answer = "SHAPE NOT FIT, shape[0]/dist1: " + str(shape[0]/dist1) + " hs: " + str(hs) 
         return False, answer
     if shape[1]/dist2 > hs:
-        answer = "shape not fit, shape[1]/dist2: " + str(shape[1]/dist2) + " hs: " + str(ls) 
+        answer = "SHAPE NOT FIT, shape[1]/dist2: " + str(shape[1]/dist2) + " hs: " + str(ls) 
         return False, answer
 
         
@@ -117,20 +127,20 @@ def isConvex(points, shape, angle_restriction_homography, low_scale_restriction_
     # print(abs(angle_1 - np.pi/2), abs(angle_2 - np.pi/2), abs(angle_3 - np.pi/2), abs(angle_4 - np.pi/2))
     delta = angle_restriction_homography
     if abs(angle_1 - np.pi/2) > delta:
-        answer = "angle not fit, angle_1 delta: " + str(angle_1 - np.pi/2) 
+        answer = "ANGLE NOT FIT, angle_1 delta: " + str(angle_1 - np.pi/2) 
         return False, answer
     if abs(angle_2 - np.pi/2) > delta:
-        answer = "angle not fit, angle_2 delta: " + str(angle_2 - np.pi/2)
+        answer = "ANGLE NOT FIT, angle_2 delta: " + str(angle_2 - np.pi/2)
         return False, answer
     if abs(angle_3 - np.pi/2) > delta:
-        answer = "angle not fit, angle_3 delta: " + str(angle_3 - np.pi/2)
+        answer = "ANGLE NOT FIT, angle_3 delta: " + str(angle_3 - np.pi/2)
         return False, answer
     if abs(angle_4 - np.pi/2) > delta:
-        answer = "angle not fit, angle_4 delta: " + str(angle_4 - np.pi/2)
+        answer = "ANGLE NOT FIT, angle_4 delta: " + str(angle_4 - np.pi/2)
         return False, answer
     
     # print(shape[0]/dist1, shape[1]/dist2)
-    return True, "transform is good"
+    return True, "TRANSFROM IS GOOOOOOOD!"
 
 def angle(A, B, C, /):
     Ax, Ay = A[0]-B[0], A[1]-B[1]
