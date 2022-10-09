@@ -68,6 +68,11 @@ class match_finder():
         #find the corners
         width = cadr.img.shape[1]*search_scale/cadr.cadr_scale
         height = cadr.img.shape[0]*search_scale/cadr.cadr_scale
+        if width > height:
+            height = width
+        else:
+            width = height
+        
         x_min = int(pixel_x - width/2)
         x_max = int(pixel_x + width/2)
         y_min = int(pixel_y - height/2)
@@ -82,6 +87,35 @@ class match_finder():
         roi_img = roi(img = img, kp = None, dp = None,
                 pixel_size = map_.pixel_size, pixel_x_main_map = x_min, pixel_y_main_map = y_min)    
         return roi_img
+
+    def roi_from_last_xy(self, map_, x_meter, y_meter, cadr, search_scale, yaw):
+        #find the corners
+        # if(abs(np.cos(yaw)) < np.cos(np.pi/4)):
+        pixel_x = x_meter/float(map_.pixel_size)
+        pixel_y = y_meter/float(map_.pixel_size)
+        width = cadr.img.shape[1]*search_scale/cadr.cadr_scale
+        height = cadr.img.shape[0]*search_scale/cadr.cadr_scale
+        if width > height:
+            height = width
+        else:
+            width = height
+        # else:
+            # width = cadr.img.shape[0]*search_scale
+            # height = cadr.img.shape[1]*search_scale
+        x_min = int(pixel_x - width/2)
+        x_max = int(pixel_x + width/2)
+        y_min = int(pixel_y - height/2)
+        y_max = int(pixel_y + height/2)
+        if x_min < 0: x_min = 0
+        if y_min < 0: y_min = 0
+        if x_max > map_.img.shape[1]: x_max = map_.img.shape[1]
+        if y_max > map_.img.shape[0]: y_max = map_.img.shape[0]
+        #save to structure
+        img = map_.img[y_min:y_max, x_min:x_max]
+        roi_img = roi(img = img, kp = None, dp = None,
+                pixel_size = map_.pixel_size, pixel_x_main_map = x_min, pixel_y_main_map = y_min)    
+        return roi_img
+
 
     def roi_from_map(self, map_, rl_size_x, rl_size_y):
         map_shape_x = map_.img.shape[1]
@@ -134,34 +168,7 @@ class match_finder():
         roi_img = roi(img, 0, 0, map_.pixel_size)
         return roi_img
 
-    def roi_from_last_xy(self, map_, x_meter, y_meter, cadr, search_scale, yaw):
-        #find the corners
-        # if(abs(np.cos(yaw)) < np.cos(np.pi/4)):
-        pixel_x = x_meter/float(map_.pixel_size)
-        pixel_y = y_meter/float(map_.pixel_size)
-        width = cadr.img.shape[1]*search_scale/cadr.cadr_scale
-        height = cadr.img.shape[0]*search_scale/cadr.cadr_scale
-        if width > height:
-            height = width
-        else:
-            width = height
-        # else:
-            # width = cadr.img.shape[0]*search_scale
-            # height = cadr.img.shape[1]*search_scale
-        x_min = int(pixel_x - width/2)
-        x_max = int(pixel_x + width/2)
-        y_min = int(pixel_y - height/2)
-        y_max = int(pixel_y + height/2)
-        if x_min < 0: x_min = 0
-        if y_min < 0: y_min = 0
-        if x_max > map_.img.shape[1]: x_max = map_.img.shape[1]
-        if y_max > map_.img.shape[0]: y_max = map_.img.shape[0]
-        #save to structure
-        img = map_.img[y_min:y_max, x_min:x_max]
-        roi_img = roi(img = img, kp = None, dp = None,
-                pixel_size = map_.pixel_size, pixel_x_main_map = x_min, pixel_y_main_map = y_min)    
-        return roi_img
-
+    
     def rescale_for_optimal_sift(self, roi, cadr):
         optimal_scale_for_cadr = cadr.cadr_scale
         roi.img = resize_img(roi.img, optimal_scale_for_cadr)
@@ -179,7 +186,8 @@ class match_finder():
         descriptors_1 = cadr.dp
         matches = []
         if self.cuda_enabled == False:
-            bf = cv2.BFMatcher(cv2.NORM_L2)
+            # bf = cv2.BFMatcher(cv2.NORM_L2)
+            bf = cv2.DescriptorMatcher_create(cv2.DescriptorMatcher_FLANNBASED)
             matches = bf.knnMatch(descriptors_1,roi.dp,k=2)
         else:
             matcherGPU = cv2.cuda.DescriptorMatcher_createBFMatcher(cv2.NORM_L2)
@@ -200,18 +208,21 @@ class match_finder():
         # clahe = cv2.createCLAHE(clipLimit=30.0, tileGridSize=(8,8))
         clahe = cv2.createCLAHE(clipLimit=80.0, tileGridSize=(16,16))
         img = clahe.apply(img)
-        img = cv2.GaussianBlur(img,(3,3),0)
+        # img = cv2.GaussianBlur(img,(3,3),0)
         surf = cv2.xfeatures2d.SIFT_create(nfeatures = 0,
             nOctaveLayers = self.nOctaveLayers,
             contrastThreshold = self.contrastThreshold,
             edgeThreshold = self.edgeThreshold,
             sigma = self.sigma)
+        
+
         # surf = cv2.xfeatures2d.SURF_create(hessianThreshold = 10,
-        #                             nOctaves = 5,
-        #                             nOctaveLayers = 5,
-        #                             extended = True,
+        #                             nOctaves = 3,
+        #                             nOctaveLayers = 1,
+        #                             extended = False,
         #                             upright = False)
         
+
         keypoints_1, descriptors_1 = surf.detectAndCompute(img, None)
         return keypoints_1, descriptors_1, img
 
@@ -269,7 +280,26 @@ class match_finder():
         lat, lon, _ = g_c.ned2Geodetic(north=float(-y_meter), east=float(x_meter), down=0)
         return lat, lon, x, y, x_meter, y_meter
         
-
+     def calculate_hog(self, image):
+        winSize = (64,64)
+        blockSize = (16,16)
+        blockStride = (8,8)
+        cellSize = (8,8)
+        nbins = 9
+        derivAperture = 1
+        winSigma = 4.
+        histogramNormType = 0
+        L2HysThreshold = 2.0000000000000001e-01
+        gammaCorrection = 0
+        nlevels = 64
+        hog = cv2.HOGDescriptor(winSize,blockSize,blockStride,cellSize,nbins,derivAperture,winSigma,
+                                histogramNormType,L2HysThreshold,gammaCorrection,nlevels)
+        #compute(img[, winStride[, padding[, locations]]]) -> descriptors
+        winStride = (8,8)
+        padding = (8,8)
+        locations = ((10,20),)
+        hist = hog.compute(image,winStride,padding,locations)
+        
     def get_angles_from_homography(self, H):
         #eject the yaw transform
         #[c -s 0 0]
