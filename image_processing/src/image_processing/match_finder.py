@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from utils import resize_img, rotate_image, line_intersection, isConvex
 import math
 from time import time
+
 @dataclass
 class roi:
     img: np.ndarray
@@ -280,7 +281,7 @@ class match_finder():
         lat, lon, _ = g_c.ned2Geodetic(north=float(-y_meter), east=float(x_meter), down=0)
         return lat, lon, x, y, x_meter, y_meter
         
-     def calculate_hog(self, image):
+    def calculate_hog(self, image):
         winSize = (64,64)
         blockSize = (16,16)
         blockStride = (8,8)
@@ -299,7 +300,8 @@ class match_finder():
         padding = (8,8)
         locations = ((10,20),)
         hist = hog.compute(image,winStride,padding,locations)
-        
+        return hist    
+
     def get_angles_from_homography(self, H):
         #eject the yaw transform
         #[c -s 0 0]
