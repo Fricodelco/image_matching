@@ -108,9 +108,9 @@ class PhotoPublisher:
         self.pub_image_for_test = rospy.Publisher('/photo_test', Image, queue_size=1)
         self.bridge = CvBridge()
         self.iterator = 0
-        # start_height = rospy.get_param("start_height")
-        # while abs(self.height) < start_height:
-            # rospy.sleep(0.2)
+        start_height = rospy.get_param("start_height")
+        while abs(self.height) < start_height:
+            rospy.sleep(0.2)
         self.logger.info("csi start")
 
     def baro_cb(self, data):
