@@ -275,45 +275,45 @@ class PositionFinder:
             return pose_enable
 
     def pose_from_roi(self, roi, cadr):
-        # good, img_for_pub = self.matcher.find_matches(roi, cadr)
-        # normalize_imagesth_speed = 0
-        # east_speed = 0
-        # yaw_speed = 0
-        # speed_limit = False
-        # if time() - self.time_between_cadrs > self.count_of_pictures_for_odometry:
-        #     try:
-        #         north_speed, east_speed, speed_limit, yaw_speed = self.compare_cadrs(cadr, self.old_cadr)
-        #     except Exception as e:
-        #         print("between cadrs exception", e)
-        #         north_speed = 0
-        #         east_speed = 0
-        #         self.logger.error("between cadrs exception"+str(e))
-        #     self.old_cadr = cadr
+        good, img_for_pub = self.matcher.find_matches(roi, cadr)
+        normalize_imagesth_speed = 0
+        east_speed = 0
+        yaw_speed = 0
+        speed_limit = False
+        if time() - self.time_between_cadrs > self.count_of_pictures_for_odometry:
+            try:
+                north_speed, east_speed, speed_limit, yaw_speed = self.compare_cadrs(cadr, self.old_cadr)
+            except Exception as e:
+                print("between cadrs exception", e)
+                north_speed = 0
+                east_speed = 0
+                self.logger.error("between cadrs exception"+str(e))
+            self.old_cadr = cadr
         
-        # # if self.publish_keypoints_matches_img is True:
-        #     # self.pub_keypoints_image.publish(self.bridge.cv2_to_imgmsg(img_for_pub, "rgb8"))
-        # answer = "transform exception"
-        # if(len(good)>10):
-        #     try:
-        #         x_center, y_center, roll, pitch, yaw, M, img_tf, answer = self.matcher.find_keypoints_transform(good, roi, cadr, img_for_pub)
-        #         if self.publish_keypoints_matches_img is True:
-        #             self.pub_keypoints_image.publish(self.bridge.cv2_to_imgmsg(img_tf, "rgb8"))
-        #     except Exception as e:
-        #         x_center = None
-        #         print(e)
-        #         self.logger.error("find transform exception"+str(e))
-        # else:
-        #     answer = "not enough keypoints to transform"
-        #     self.logger.info("could not find transform")
-        #     x_center = None
+        # if self.publish_keypoints_matches_img is True:
+            # self.pub_keypoints_image.publish(self.bridge.cv2_to_imgmsg(img_for_pub, "rgb8"))
+        answer = "transform exception"
+        if(len(good)>10):
+            try:
+                x_center, y_center, roll, pitch, yaw, M, img_tf, answer = self.matcher.find_keypoints_transform(good, roi, cadr, img_for_pub)
+                if self.publish_keypoints_matches_img is True:
+                    self.pub_keypoints_image.publish(self.bridge.cv2_to_imgmsg(img_tf, "rgb8"))
+            except Exception as e:
+                x_center = None
+                print(e)
+                self.logger.error("find transform exception"+str(e))
+        else:
+            answer = "not enough keypoints to transform"
+            self.logger.info("could not find transform")
+            x_center = None
         
-        roi_ = cv2.imread('/home/parallels/copa5/video/roi.png')
-        cadr_ = cv2.imread('/home/parallels/copa5/video/cadr.png') 
-        hog_roi = self.matcher.calculate_hog(roi_)
-        hog_cadr = self.matcher.calculate_hog(cadr_)	
-        # print(roi.img.shape, cadr.img.shape)
+        # roi_ = cv2.imread('/home/parallels/copa5/video/roi.png')
+        # cadr_ = cv2.imread('/home/parallels/copa5/video/cadr.png') 
+        # hog_roi = self.matcher.calculate_hog(roi_)
+        # hog_cadr = self.matcher.calculate_hog(cadr_)	
+        # # print(roi.img.shape, cadr.img.shape)
         # print(hog_roi.shape, hog_cadr.shape)
-        x_center = None
+        # x_center = None
         #show coordinates
         if self.publish_calculated_pose_img is True:
             img = copy.deepcopy(self.map_resized)
