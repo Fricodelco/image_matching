@@ -105,7 +105,7 @@ class Image_Logger:
             self.first_msg = False
             self.my_date = datetime.now()
         else:
-            self.logger.info("get cadr, video time: " + str(time() - self.start_time))
+            self.logger.info("get cadr, video time: " + str(time() - self.start_time)+ " height: " + str(self.height_relative) + " start height: " + str(self.start_height))
             self._out.write(img)
         if self.first_msg is False:
             now = datetime.now()
