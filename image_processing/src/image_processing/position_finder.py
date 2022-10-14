@@ -146,11 +146,11 @@ class PositionFinder:
         # print("position finder ready")
         sys.stdout.write('position finder ready\n')
         self.logger.info("Position Finder ready")
-        if self.realtime is True:
-            while abs(self.height) < self.start_height:
-                self.logger.info("sleep while height is not enough, current height: "+ str(self.height))
-                print("sleep while height is not enough, current height: "+ str(self.height))
-                rospy.sleep(0.2)
+        # if self.realtime is True:
+        #     while abs(self.height) < self.start_height:
+        #         self.logger.info("sleep while height is not enough, current height: "+ str(self.height))
+        #         print("sleep while height is not enough, current height: "+ str(self.height))
+        #         rospy.sleep(0.2)
         sys.stdout.write('position finder start\n')
         self.logger.info("Position Finder start")
 
