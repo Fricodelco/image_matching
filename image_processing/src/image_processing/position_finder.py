@@ -38,6 +38,8 @@ class PositionFinder:
         if self.wind_speed_measure_param == False:
             self.main_map = image_processing(filename=rospy.get_param("map_name"))
             self.map_pixel_size = self.main_map.find_pixel_size()
+            print("map loaded")
+            self.logger.info("map loaded")
         else:
             self.main_map = image_processing(img = np.zeros((100,100)))
             self.map_pixel_size = 1
@@ -122,7 +124,7 @@ class PositionFinder:
         else:
             self.height_init = True
                 
-        self.sub_photo = rospy.Subscriber("photo", ImageImu, self.photo_cb, queue_size=1)
+        self.sub_photo = rospy.Subscriber("photo", ImageImu, self.photo_cb, queue_size=2)
         self.bridge = CvBridge()
         if self.publish_tf_img is True:
             self.pub_image = rospy.Publisher('/find_transform', Image, queue_size=1)
