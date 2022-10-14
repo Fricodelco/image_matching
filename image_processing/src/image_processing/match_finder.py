@@ -197,10 +197,10 @@ class match_finder():
         return good, img3
 
     def find_kp_dp(self, img):
-        # clahe = cv2.createCLAHE(clipLimit=30.0, tileGridSize=(8,8))
-        clahe = cv2.createCLAHE(clipLimit=80.0, tileGridSize=(16,16))
+        clahe = cv2.createCLAHE(clipLimit=30.0, tileGridSize=(8,8))
+        # clahe = cv2.createCLAHE(clipLimit=80.0, tileGridSize=(16,16))
         img = clahe.apply(img)
-        img = cv2.GaussianBlur(img,(3,3),0)
+        # img = cv2.GaussianBlur(img,(3,3),0)
         surf = cv2.xfeatures2d.SIFT_create(nfeatures = 0,
             nOctaveLayers = self.nOctaveLayers,
             contrastThreshold = self.contrastThreshold,

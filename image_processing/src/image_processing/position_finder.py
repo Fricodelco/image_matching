@@ -149,6 +149,7 @@ class PositionFinder:
         if self.realtime is True:
             while abs(self.height) < self.start_height:
                 self.logger.info("sleep while height is not enough, current height: "+ str(self.height))
+                print("sleep while height is not enough, current height: "+ str(self.height))
                 rospy.sleep(0.2)
         sys.stdout.write('position finder start\n')
         self.logger.info("Position Finder start")
@@ -374,11 +375,11 @@ class PositionFinder:
                     self.pub_pose_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))    
             else:
                 self.logger.info("low pass position")
-        # print("count of good: "+str(len(good))+
-        # " roi: "+str(len(roi.kp))+
-        # " cadr: "+str(len(cadr.kp))+' from privyazka: '+str(self.pose_from_privyazka)+" height: "+str(self.height))
-        # print(answer)
-        # self.log_keypoints(len(good), len(roi.kp), len(cadr.kp), self.pose_from_privyazka, answer)
+        print("count of good: "+str(len(good))+
+        " roi: "+str(len(roi.kp))+
+        " cadr: "+str(len(cadr.kp))+' from privyazka: '+str(self.pose_from_privyazka)+" height: "+str(self.height))
+        print(answer)
+        self.log_keypoints(len(good), len(roi.kp), len(cadr.kp), self.pose_from_privyazka, answer)
         
         #send poses
         if self.publish_calculated_pose_img is True:
