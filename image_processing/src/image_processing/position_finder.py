@@ -155,6 +155,7 @@ class PositionFinder:
         self.logger.info("Position Finder start")
 
     def photo_cb(self, data):
+        print("GET PHOTO")
         try:
             self.log_state()
             if (self.use_baro is True and self.height_init is True) or self.use_baro is False:
