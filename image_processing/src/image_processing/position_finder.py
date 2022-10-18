@@ -157,7 +157,6 @@ class PositionFinder:
         self.logger.info("Position Finder start")
 
     def photo_cb(self, data):
-        print("GET PHOTO")
         try:
             self.log_state()
             if (self.use_baro is True and self.height_init is True) or self.use_baro is False:
@@ -286,6 +285,7 @@ class PositionFinder:
         speed_limit = False
         if time() - self.time_between_cadrs > self.count_of_pictures_for_odometry:
             try:
+                # print(type(cadr), type(self.old_cadr))
                 north_speed, east_speed, speed_limit, yaw_speed = self.compare_cadrs(cadr, self.old_cadr)
             except Exception as e:
                 print("between cadrs exception", e)
@@ -293,6 +293,7 @@ class PositionFinder:
                 east_speed = 0
                 self.logger.error("between cadrs exception"+str(e))
             self.old_cadr = cadr
+            
         
         # if self.publish_keypoints_matches_img is True:
             # self.pub_keypoints_image.publish(self.bridge.cv2_to_imgmsg(img_for_pub, "rgb8"))
@@ -396,6 +397,7 @@ class PositionFinder:
         good, _ = self.matcher.find_matches(cadr, cadr_old)
         x_center, y_center, roll, pitch, yaw_cadr, M, img, answer = self.matcher.find_keypoints_transform(good, cadr, cadr_old, None)
         if x_center is not None:
+
             if self.publish_between_img is True:
                 if img is not None:
                     self.pub_between_image.publish(self.bridge.cv2_to_imgmsg(img, "8UC1"))
@@ -405,9 +407,9 @@ class PositionFinder:
             y_trans = delta_y*np.cos(self.imu_yaw) - delta_x*np.sin(self.imu_yaw)
             delta_time = time() - self.time_between_cadrs
             self.time_between_cadrs = time()
-            if delta_time < 2.0 and abs(yaw_cadr) < 1.0:
-                north_speed = 2*(y_trans/delta_time)
-                east_speed = 2*(x_trans/delta_time)
+            if delta_time < 4.0 and abs(yaw_cadr) < 1.0:
+                north_speed = 1.5*(y_trans/delta_time)
+                east_speed = 1.5*(x_trans/delta_time)
                 speed_limit = False
                 if abs(north_speed) > self.low_pass_speed or abs(east_speed) > self.low_pass_speed:
                     north_speed = 0
@@ -418,7 +420,6 @@ class PositionFinder:
                     self.logger.info("north_speed: "+str(north_speed)+
                                     " east_speed: "+str(east_speed))
                 # print(speed_limit)
-                # print("north speed: ",float('{:.3f}'.format(north_speed)), "east_speed: ", float('{:.3f}'.format(east_speed)), "yaw cadr: ", yaw_cadr)
                 yaw_speed = -1*(yaw_cadr)/delta_time
                 self.generate_and_send_vel(north_speed, east_speed, yaw_speed, self.pose_from_privyazka)
                 print("speed: ", east_speed*delta_time, north_speed*delta_time)
