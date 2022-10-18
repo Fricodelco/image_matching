@@ -11,6 +11,7 @@ from datetime import datetime
 import logging
 from std_msgs.msg import Float64
 import numpy as np
+from std_msgs.msg import Bool
 # define a video capture object
 # pipeline = 'nvarguscamerasrc !  video/x-raw(memory:NVMM), width=1920, height=1080, format=NV12, framerate=30/1 ! nvvidconv flip-method=0 ! video/x-raw, width=1920, height=1080, format=BGRx ! videoconvert ! video/x-raw, format=BGR ! appsink'
 # pipeline = 'nvarguscamerasrc !  video/x-raw(memory:NVMM), width=1920, height=1080, format=NV12, framerate=30/1 ! nvvidconv flip-method=0 ! video/x-raw, width=1920, height=1080, format=I420 ! videoconvert h! video/x-raw, format=BGR ! appsink'
@@ -99,7 +100,7 @@ class PhotoPublisher:
         while enabled == False:
             rospy.sleep(1)
             enabled = self.init_pipeline(pipeline)
-            
+        
             
         self.init_pipeline(pipeline)
         self.imu_msg = Imu()
@@ -107,10 +108,14 @@ class PhotoPublisher:
         self.pub_image = rospy.Publisher('/photo', ImageImu, queue_size=1)
         self.sub_baro = rospy.Subscriber("baro_relative", Float64, self.baro_cb)
         self.pub_image_for_test = rospy.Publisher('/photo_test', Image, queue_size=1)
+        self.pub_camera_alive = rospy.Publisher('/camera_alive', Bool, queue_size=1)
         self.bridge = CvBridge()
         self.iterator = 0
         start_height = rospy.get_param("start_height")
+        self.cam_alive_msg = Bool()
+        self.cam_alive_msg.data = True
         while abs(self.height) < start_height:
+            self.pub_camera_alive.publish(self.cam_alive_msg)
             rospy.sleep(0.2)
         self.logger.info("csi start")
 
@@ -184,7 +189,8 @@ class PhotoPublisher:
             msg_img_imu.img = msg_img
             msg_img_imu.imu = self.imu_msg
             self.pub_image.publish(msg_img_imu)
-            self.pub_image_for_test.publish(msg_img)
+            self.pub_image_for_test.publish(msg_img)           
+            self.pub_camera_alive.publish(self.cam_alive_msg)
             if frame.shape[0] > 0:
                 self.logger.info("send photo!")
             self.iterator = 0
