@@ -103,7 +103,7 @@ class PhotoPublisher:
             if self.iterator > self.rate/5:
                 # frame = frame[:,:,2]
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                frame = self.undistort(frame, balance=1.0, scale=0.625)
+                # frame = self.undistort(frame, balance=1.0, scale=0.625)
                 # h,  w = frame.shape[:2]
                 # newcameramtx, roi = cv2.getOptimalNewCameraMatrix(self.mtx, self.dist, (w,h), 1, (w,h))
                 # frame = cv2.undistort(frame, self.mtx, self.dist, None, newcameramtx)
