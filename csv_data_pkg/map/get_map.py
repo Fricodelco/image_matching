@@ -31,8 +31,8 @@ class MapGenerator():
     
         self.lon_step = lon_step*(1-self.map_height_cup/self.map_height)
 
-        self.first_csv_file_path = "/home/rodion/copa5/created_csv/log1.csv"
-        self.second_csv_file_path = "/home/rodion/copa5/created_csv/log2.csv"
+        self.first_csv_file_path = "/home/parallels/copa5/video/200_csi_19.csv"
+        self.second_csv_file_path = "/home/parallels/copa5/video/200_csi_19_bad.csv"
 
     def generate_map(self, center:list, lat_lon_datas:list, max_min: list)->Image:
         

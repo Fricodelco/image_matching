@@ -158,16 +158,18 @@ class PositionFinder:
 
     def photo_cb(self, data):
         try:
+            #main callback for data analize
             self.log_state()
             if (self.use_baro is True and self.height_init is True) or self.use_baro is False:
                 start_time = time()
                 self.imu_cb(data.imu)
+                #check the realtime param
                 if self.realtime == False:
                     image = self.bridge.imgmsg_to_cv2(data.img, "8UC1")
                 else:
                     image = self.bridge.imgmsg_to_cv2(data.img, "bgr8")
                     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
+                #creating cadr structure
                 cadr = image_processing(img = image)
                 cadr.find_pixel_size_by_height(self.height, self.poi)
                 #IF THE WIND SERVER GOALED
@@ -217,8 +219,10 @@ class PositionFinder:
             
     def find_pose(self, cadr):
         #check if the cadr is first
+        #search for better roi
         if self.first_cadr is True:
             if self.use_gps == True:
+                #roi via gps link
                 if self.roi_iterator > 10:
                     self.roi_after_link = self.matcher.find_map_roi_by_coordinates(self.main_map, cadr, self.lat_gps, self.lon_gps, self.search_scale_for_roi_by_gps)
                     if self.roi_after_link.img.shape[0] == 0:
@@ -234,6 +238,7 @@ class PositionFinder:
                         self.pub_roi_image.publish(self.bridge.cv2_to_imgmsg(self.roi_after_link.img, "8UC1"))
                     return pose_enable
             else:
+                #roi via rolling window
                 if self.first_rolling == True:
                     rolling_window_size_x = (float(cadr.pixel_size)/float(self.main_map.pixel_size))*cadr.img.shape[1]*self.search_scale_for_roi_by_rolling_window
                     rolling_window_size_y = (float(cadr.pixel_size)/float(self.main_map.pixel_size))*cadr.img.shape[1]*self.search_scale_for_roi_by_rolling_window
@@ -260,6 +265,7 @@ class PositionFinder:
                             return pose_enable
                     return False
         else:
+            #roi via link
             if self.roi_iterator > 10:
                 if self.upscale_link is False:
                     self.roi_after_link = self.matcher.roi_from_last_xy(self.main_map, float(self.x_meter), float(self.y_meter), cadr,
@@ -278,11 +284,13 @@ class PositionFinder:
             return pose_enable
 
     def pose_from_roi(self, roi, cadr):
+        #try to get pose from roi
         good, img_for_pub = self.matcher.find_matches(roi, cadr)
         normalize_imagesth_speed = 0
         east_speed = 0
         yaw_speed = 0
         speed_limit = False
+        #try to calculate speed from between cadrs
         if time() - self.time_between_cadrs > self.count_of_pictures_for_odometry:
             try:
                 # print(type(cadr), type(self.old_cadr))
@@ -298,6 +306,7 @@ class PositionFinder:
         # if self.publish_keypoints_matches_img is True:
             # self.pub_keypoints_image.publish(self.bridge.cv2_to_imgmsg(img_for_pub, "rgb8"))
         answer = "transform exception"
+        #if enough keypoints
         if(len(good)>10):
             try:
                 x_center, y_center, roll, pitch, yaw, M, img_tf, answer = self.matcher.find_keypoints_transform(good, roi, cadr, img_for_pub)
@@ -312,14 +321,7 @@ class PositionFinder:
             self.logger.info("could not find transform")
             x_center = None
         
-        # roi_ = cv2.imread('/home/parallels/copa5/video/roi.png')
-        # cadr_ = cv2.imread('/home/parallels/copa5/video/cadr.png') 
-        # hog_roi = self.matcher.calculate_hog(roi_)
-        # hog_cadr = self.matcher.calculate_hog(cadr_)	
-        # # print(roi.img.shape, cadr.img.shape)
-        # print(hog_roi.shape, hog_cadr.shape)
-        # x_center = None
-        #show coordinates
+        #publish debug image
         if self.publish_calculated_pose_img is True:
             img = copy.deepcopy(self.map_resized)
             img = draw_circle_on_map_by_coord_and_angles(img,
@@ -338,11 +340,11 @@ class PositionFinder:
                                         (self.filtered_lat, self.filtered_lon), self.map_resized_pixel_size, (self.imu_yaw), (255,255,255))
             
         self.pose_from_privyazka = False
-        
+        #if we can to link
         if x_center is not None and speed_limit is False:
             if self.publish_tf_img is True:
                 self.pub_image.publish(self.bridge.cv2_to_imgmsg(img_tf, "8UC3"))
-            
+            #solve IK 
             lat_zero, lon_zero,_ ,_ , x_meter, y_meter = self.matcher.solve_IK(x_center, y_center, self.height, 0, 0, yaw, roi, self.main_map)
             lat, lon, _, _, x_inc, y_inc = self.matcher.solve_IK(x_center, y_center, self.height,
                                         self.imu_roll, self.imu_pitch, self.imu_yaw, roi, self.main_map)
@@ -394,6 +396,7 @@ class PositionFinder:
             return False
     
     def compare_cadrs(self, cadr, cadr_old):
+        #compare near cadrs for speed estimation
         good, _ = self.matcher.find_matches(cadr, cadr_old)
         x_center, y_center, roll, pitch, yaw_cadr, M, img, answer = self.matcher.find_keypoints_transform(good, cadr, cadr_old, None)
         if x_center is not None:
@@ -431,6 +434,7 @@ class PositionFinder:
             print("no between cadrs match")
 
     def windCall(self, goal):
+        #wind measure service
         print("WIND CALLED")
         self.logger.info("WIND CALLED")
         self.wind_mes_flag = True
@@ -459,6 +463,7 @@ class PositionFinder:
         self.wind_server.set_succeeded(answer)
 
     def find_wind_speed(self, cadr):
+        #find wind speed with the camera
         if self.main_cadr == None:
             self.main_cadr = cadr
             self.time_between_cadrs = time()
@@ -488,6 +493,7 @@ class PositionFinder:
         # self.pub_between_image.publish(self.bridge.cv2_to_imgmsg(img, "bgr8"))
     
     def find_wind_speed_gps(self, gps):
+        #find wind speed with gps
         if self.gps_measure == None:
             self.gps_measure = NavSatFix()
             self.gps_measure.latitude = gps.latitude
@@ -512,6 +518,7 @@ class PositionFinder:
                 self.wind_mes_flag = False
             
     def generate_and_send_vel(self, north_speed, east_speed, yaw_speed, pose_from_privyazka):
+        #odometry for calman
         msg = Odometry()
         msg.header.stamp = rospy.Time.now()
         msg.header.frame_id = 'base_link'
@@ -529,6 +536,7 @@ class PositionFinder:
         self.pub_pose_from.publish(msg)
 
     def low_pass_pose(self, x, y):
+        #low pass filter for position
         delta_time = time() - self.low_pass_time
         delta_x = abs(self.x_meter - x)
         delta_y = abs(self.y_meter - y)
