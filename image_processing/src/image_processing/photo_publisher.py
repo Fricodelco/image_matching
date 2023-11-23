@@ -63,9 +63,16 @@ class PhotoPublisher:
                         if fps == 0:
                             self.cap = cv2.VideoCapture(self.data_path+'.mkv', cv2.CAP_FFMPEG)
                     else:
-                        # print("NO VIDEO FILE")
-                        self.done = None            
-                        return None
+                        file_exists = os.path.exists(self.data_path+'.avi')
+                        if file_exists is True:
+                            self.cap = cv2.VideoCapture('filesrc location=' + self.data_path+'.avi'+' ! qtdemux ! queue ! h264parse ! omxh264dec ! nvvidconv ! video/x-raw,format=BGRx ! queue ! videoconvert ! queue ! video/x-raw, format=BGR ! appsink', cv2.CAP_GSTREAMER)
+                            fps = int(self.cap.get(cv2.CAP_PROP_FPS))
+                            if fps == 0:
+                                self.cap = cv2.VideoCapture(self.data_path+'.avi', cv2.CAP_FFMPEG)
+                        else:
+                            print("NO VIDEO FILE")
+                            self.done = None            
+                            return None
             # self.cap.set(cv2.CAP_GSTREAMER)
             # self.cap = cv2.VideoCapture('filesrc location=/home/jetson/copa5/video/001-acl-2222.mp4 ! qtdemux ! queue ! h264parse ! omxh264dec ! nvvidconv ! video/x-raw,format=BGRx ! queue ! videoconvert ! queue ! video/x-raw, format=BGR ! appsink', cv2.CAP_GSTREAMER)
             fps = int(self.cap.get(cv2.CAP_PROP_FPS))
@@ -175,6 +182,7 @@ if __name__ == '__main__':
         rate = rospy.Rate(photo_publisher.rate)
         path = photo_publisher.data_path
         file_exists = os.path.exists(path+'.csv')
+        print(path+'.csv')
         try:
             if file_exists is True:
                 csvRosHandler = CsvRosHendler(path+'.csv', photo_publisher.rate_multi)

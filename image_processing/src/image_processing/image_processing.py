@@ -44,7 +44,7 @@ class image_processing():
                     # raster = gdal.Open(data_path+'/'+filename+'.TIF')
                     self.img = cv2.imread(data_path+'/'+filename+'.TIF')
             except:
-                # print("NO MAP FILE")
+                print("NO MAP FILE")
                 return None
             # print("map loaded", time() - time_start)
             time_start = time()

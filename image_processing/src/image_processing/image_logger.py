@@ -203,15 +203,15 @@ class Image_Logger:
 if __name__ == '__main__':
     rospy.init_node('logger')
     logger = Image_Logger()
-    # if logger.realtime == True:
-    rate = rospy.Rate(10.0)
-    while not rospy.is_shutdown() and logger.stop_film is False:
-        logger.check_height()
-        rate.sleep()
-    print("stop_filming")
-    logger._out.release()
-    logger.logger.info("video saved")
-    sys.stdout.write('image logger dead\n')
+    if logger.realtime == True:
+        rate = rospy.Rate(10.0)
+        while not rospy.is_shutdown() and logger.stop_film is False:
+            logger.check_height()
+            rate.sleep()
+        print("stop_filming")
+        logger._out.release()
+        logger.logger.info("video saved")
+        sys.stdout.write('image logger dead\n')
         
 
 

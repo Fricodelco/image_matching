@@ -182,16 +182,22 @@ class PositionFinder:
                 elif self.wind_mes_flag == False:
                     #resize by pixel size
                     scale, map_pixel_bigger = self.matcher.find_scale(self.map_pixel_size, cadr.pixel_size)
-                    if map_pixel_bigger is True:
+                    # print("SCALE", scale)
+                    # print("map pixel: ", self.map_pixel_size, " cadr pixel: ", cadr.pixel_size)
+                    # if map_pixel_bigger is True:
                         # print(self.map_pixel_size, cadr.pixel_size)
                         # print(cadr.img.shape, scale)
-                        cadr.img, cadr.pixel_size = self.matcher.resize_by_scale(
+                    cadr.img, cadr.pixel_size = self.matcher.resize_by_scale(
                                                 cadr.img, cadr.pixel_size, scale)
-                    else:
+                    # else:
+                        
                         #need copy of full size map for future
-                        self.main_map.img, self.main_map.pixel_size = self.matcher.resize_by_scale(
-                                            self.main_map.img, self.main_map.pixel_size, scale)
-                        self.map_pixel_size = self.main_map.pixel_size
+                        # self.main_map.img, self.main_map.pixel_size = self.matcher.resize_by_scale(
+                                            # self.main_map.img, self.main_map.pixel_size, scale)
+                        # self.map_pixel_size = self.main_map.pixel_size
+                    print("map pixel: ", self.map_pixel_size, " cadr pixel: ", cadr.pixel_size)
+                    print("cadr shape: ", cadr.img.shape)
+                    print("map shape: ", self.main_map.img.shape)
                     #find match
                     cadr.find_kp_dp_scale(self.matcher)
                     answer = self.find_pose(cadr)
@@ -345,9 +351,12 @@ class PositionFinder:
             if self.publish_tf_img is True:
                 self.pub_image.publish(self.bridge.cv2_to_imgmsg(img_tf, "8UC3"))
             #solve IK 
+            # lat_zero, lon_zero,_ ,_ , x_meter, y_meter = self.matcher.solve_IK(x_center, y_center, self.height, 0, 0, yaw, roi, self.main_map)
+            # lat, lon, _, _, x_inc, y_inc = self.matcher.solve_IK(x_center, y_center, self.height,
+            #                             self.imu_roll, self.imu_pitch, self.imu_yaw, roi, self.main_map)
             lat_zero, lon_zero,_ ,_ , x_meter, y_meter = self.matcher.solve_IK(x_center, y_center, self.height, 0, 0, yaw, roi, self.main_map)
             lat, lon, _, _, x_inc, y_inc = self.matcher.solve_IK(x_center, y_center, self.height,
-                                        self.imu_roll, self.imu_pitch, self.imu_yaw, roi, self.main_map)
+                                        0.0, 0.0, self.imu_yaw, roi, self.main_map)
             
             self.last_yaw = yaw
             

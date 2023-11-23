@@ -198,14 +198,19 @@ class match_finder():
 
     def find_kp_dp(self, img):
         clahe = cv2.createCLAHE(clipLimit=30.0, tileGridSize=(8,8))
+        # img = cv2.GaussianBlur(img,(3,3),0)
         # clahe = cv2.createCLAHE(clipLimit=80.0, tileGridSize=(16,16))
         img = clahe.apply(img)
-        # img = cv2.GaussianBlur(img,(3,3),0)
-        surf = cv2.xfeatures2d.SIFT_create(nfeatures = 0,
-            nOctaveLayers = self.nOctaveLayers,
-            contrastThreshold = self.contrastThreshold,
-            edgeThreshold = self.edgeThreshold,
-            sigma = self.sigma)
+        
+        # surf = cv2.xfeatures2d.SIFT_create(nfeatures = 0,
+            # nOctaveLayers = self.nOctaveLayers,
+            # contrastThreshold = self.contrastThreshold,
+            # edgeThreshold = self.edgeThreshold,
+            # sigma = self.sigma)
+        surf = cv2.AKAZE_create(descriptor_type=cv2.AKAZE_DESCRIPTOR_KAZE, threshold = 0.0005,
+                                nOctaves=4, nOctaveLayers = 5, diffusivity=cv2.KAZE_DIFF_PM_G2)
+        # surf = cv2.KAZE_create(threshold = 0.001,
+                                # nOctaves=4, nOctaveLayers = 5, diffusivity=cv2.KAZE_DIFF_PM_G2)
         # surf = cv2.xfeatures2d.SURF_create(hessianThreshold = 10,
         #                             nOctaves = 5,
         #                             nOctaveLayers = 5,
